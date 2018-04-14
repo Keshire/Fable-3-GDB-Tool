@@ -38,10 +38,10 @@ namespace GDBEditor
         //0700 = object hash
     }
 
-    public class HashStruct
+    public class ObjectLabel
     {
-        public uint Hash1 { get; set; }
-        public uint Hash2 { get; set; }
+        public uint Label { get; set; }
+        public uint Object { get; set; }
     }
 
     public class HashBlock

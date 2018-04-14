@@ -19,15 +19,16 @@ namespace GDBEditor
         //End of header
 
 
-        public List<TData> TemplateData { get; set; }   //[TDCount]
-        public List<uint> HashIndex { get; set; }       //[TDCount];
-        public List<UInt16> Unknown { get; set; }       //[TDCount];    //Offset or 16bit Hashes or...??
-        public List<HashStruct> Hashes { get; set; }    //[Count1];
+        public List<TData> TemplateData { get; set; }       //[TDCount]
+        public List<uint> HashIndex { get; set; }           //[TDCount];
+        public List<UInt16> Unknown { get; set; }           //[TDCount];    //Offset or 16bit Hashes or...??
+        //public List<ObjectLabel> ObjectLabels { get; set; } //[Count1];
         public HashBlock StringData { get; set; }
 
 
         public Dictionary<uint, Template> TemplateDictionary = new Dictionary<uint, Template>(); //We'll need this to rebuild later
-        public Dictionary<uint, string> fnvhashes = new Dictionary<uint, string>(); //Keep the hashes handy
+        public Dictionary<uint, uint>     ObjectLabels = new Dictionary<uint, uint>(); //Cross objects with FNVHashes
+        public Dictionary<uint, string>   FNVHashes = new Dictionary<uint, string>(); //Keep the hashes handy
 
         public GDBFileHandling(BinaryReader buffer)
         {
@@ -90,7 +91,7 @@ namespace GDBEditor
             //Jump past templates because we already have them all. We'll need to determine its size later in order to rebuild the .gdb though
             buffer.BaseStream.Position = 0x18 + TDStart + TDSize;
 
-            //I think these are the base object labels, fnv hashed of course.
+            //Should be hashed object, cross link with Object Labels??
             HashIndex = new List<uint>();
             for (int i = 0; i < TDCount; i++)
             {
@@ -105,10 +106,13 @@ namespace GDBEditor
             }
 
             //Don't remember what these are for.
-            Hashes = new List<HashStruct>();
+            //ObjectLabels = new List<ObjectLabel>();
             for (int i = 0; i < Count1; i++)
             {
-                Hashes.Add(new HashStruct { Hash1 = buffer.ReadUInt32(), Hash2 = buffer.ReadUInt32() });
+                var Label = buffer.ReadUInt32();
+                var Object = buffer.ReadUInt32();
+                ObjectLabels[Object] = Label;
+                //ObjectLabels.Add(new ObjectLabel {  });
             }
 
 
@@ -130,7 +134,7 @@ namespace GDBEditor
                     stringbytes.Add(buffer.ReadChar());
                 }
                 buffer.ReadChar(); //null termination
-                fnvhashes[hash] = new string(stringbytes.ToArray());
+                FNVHashes[hash] = new string(stringbytes.ToArray());
             }
             
             StringData.HashPointerArray = new List<uint>();         //[HashCount];  //Offsets back into StringArray

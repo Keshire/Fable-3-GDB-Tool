@@ -8,40 +8,74 @@ namespace GDBEditor
 {
     public class GDBTreeHandling
     {
-        public Dictionary<UInt16,List<TData>> RegionList = new Dictionary<ushort, List<TData>>();
+        public Dictionary<UInt16,List<GDBObjectTreeItem>> RegionList = new Dictionary<ushort, List<GDBObjectTreeItem>>();
         public List<GDBObjectTreeItem> GDBObjectTree = new List<GDBObjectTreeItem>();
 
         public class GDBObjectTreeItem
         {
-            public UInt16 Folder;
-            public string LabelHash;
-            public string Label;
-            public TData Data;
+            public UInt16 ObjectFolder;
+            public uint   ObjectHash;
+            public string ObjectLabel;
+
+            public TData ObjectData;
+            public Template ObjectDataTemplate;
+            public List<string> ObjectDataLabels = new List<string>();
+            
         }
 
         public GDBTreeHandling(GDBFileHandling gdbObject)
         {
             for (int i = 0; i < gdbObject.TDCount; i++)
             {
-                var item = new GDBObjectTreeItem { Folder = gdbObject.Unknown[i], LabelHash = gdbObject.HashIndex[i].ToString("X") };
-
-                if (gdbObject.fnvhashes.ContainsKey(gdbObject.HashIndex[i]))
+                var item = new GDBObjectTreeItem
                 {
-                    item.Label = gdbObject.fnvhashes[gdbObject.HashIndex[i]];
+                    ObjectFolder = gdbObject.Unknown[i],
+                    ObjectHash = gdbObject.HashIndex[i],
+                    ObjectData = gdbObject.TemplateData[i],
+                    ObjectDataTemplate = gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate]
+                };
+
+                foreach (var fnvhash in gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate].ObjectHashList)
+                {
+                    if (gdbObject.FNVHashes.ContainsKey(fnvhash))
+                    {
+                        item.ObjectDataLabels.Add(gdbObject.FNVHashes[fnvhash]);
+                    }
+                    else
+                    {
+                        item.ObjectDataLabels.Add("Template Label Not Found");
+                    }
                 }
-                item.Data = gdbObject.TemplateData[i];
+
+
+                if (gdbObject.ObjectLabels.ContainsKey(item.ObjectHash))
+                {
+                    if (gdbObject.FNVHashes.ContainsKey(gdbObject.ObjectLabels[item.ObjectHash]))
+                    {
+                        item.ObjectLabel = gdbObject.FNVHashes[gdbObject.ObjectLabels[item.ObjectHash]];
+                    }
+                    else
+                    {
+                        item.ObjectLabel = "String Not Located";
+                    }
+                }
+                else
+                {
+                    item.ObjectLabel = "Object Not Located";
+                }
+
                 GDBObjectTree.Add(item);
             }
 
             foreach(var item in GDBObjectTree)
             {
-                if (RegionList.ContainsKey(item.Folder))
+                if (RegionList.ContainsKey(item.ObjectFolder))
                 {
-                    RegionList[item.Folder].Add(item.Data); //Change this to label via fnvhash list
+                    RegionList[item.ObjectFolder].Add(item); //Change this to label via fnvhash list
                 }
                 else
                 {
-                    RegionList.Add(item.Folder, new List<TData> { item.Data });
+                    RegionList.Add(item.ObjectFolder, new List<GDBObjectTreeItem> { item });
                 }
             }
         }

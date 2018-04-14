@@ -7,12 +7,35 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
 	<DockPanel>
-        <Menu DockPanel.Dock="Top">
-            <MenuItem Header="_File">
-                <MenuItem Header="_Open " Click="Open_Click" />
+		<Menu DockPanel.Dock="Top">
+			<MenuItem Header="_File">
+				<MenuItem Header="_Open " Click="Open_Click" />
                 <Separator />
                 <MenuItem Header="_Save" Click="Save_Click"/>
             </MenuItem>
-        </Menu>
+		</Menu>
+        <TreeView Name="trvNodes" Height="400" VerticalAlignment="Top" Width="780">
+            <TreeView.Resources>
+                <HierarchicalDataTemplate DataType="{x:Type local:TreeGDBRegion}" ItemsSource="{Binding TreeGDBObject}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" />
+                        <TextBlock Text=" [" Foreground="Blue" />
+                        <TextBlock Text="{Binding TreeGDBObject.Count}" Foreground="Blue" />
+                        <TextBlock Text="]" Foreground="Blue" />
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+                <HierarchicalDataTemplate DataType="{x:Type local:TreeGDBObject}" ItemsSource="{Binding TreeGDBObjectData}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" />
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+                <DataTemplate DataType="{x:Type local:TreeGDBObjectData}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Name}" />
+                        <TextBlock Text="{Binding Data}" />
+                    </StackPanel>
+                </DataTemplate>
+            </TreeView.Resources>
+        </TreeView>
     </DockPanel>
 </Window>
