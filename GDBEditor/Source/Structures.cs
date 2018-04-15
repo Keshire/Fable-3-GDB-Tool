@@ -6,18 +6,10 @@ using System.Threading.Tasks;
 
 namespace GDBEditor
 {
-
-    //File Structures gleamed from staring at a hex editor for too long.
-    public class GDB
-    {
-
-    }
-
-
     public class TData
     {
         public uint         OffsetToTemplate { get; set; }
-        public List<uint>   TemplateData { get; set; }
+        public List<byte[]>   TemplateData { get; set; }
     }
 
     public class Template
@@ -27,7 +19,7 @@ namespace GDBEditor
         public UInt16   Count2          { get; set; }   //This should be little_endian!! WTF,seems to be used for animation states
 
         public List<uint>                   ObjectHashList { get; set; }  //[(Count2 * 256) + Count1];    //(Count2*256) fucking endian...
-        public Dictionary<UInt16, UInt16>   ObjectDatatype { get; set; }  //[(Count2 * 256) + Count1];    //This looks to be controlling datatypes used.
+        public SortedDictionary<UInt16, UInt16>   ObjectDatatype { get; set; }  //[(Count2 * 256) + Count1];    //This looks to be controlling datatypes used.
         //0000 = boolean
         //0100 = dword
         //0200 = dword lots of GroupIndex

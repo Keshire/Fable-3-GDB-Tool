@@ -57,35 +57,56 @@ namespace GDBEditor
                         //gdbObject needs to be rebuilt as a readable tree to plug into a tree view.
                         gdbTree = new GDBTreeHandling(gdbObject);
 
-                        /*
-                        List<Family> families = new List<Family>();
-
-                        Family family1 = new Family() { Name = "The Doe's" };
-                        family1.Members.Add(new FamilyMember() { Name = "John Doe", Age = 42 });
-                        family1.Members.Add(new FamilyMember() { Name = "Jane Doe", Age = 39 });
-                        family1.Members.Add(new FamilyMember() { Name = "Sammy Doe", Age = 13 });
-                        families.Add(family1);
-
-                        Family family2 = new Family() { Name = "The Moe's" };
-                        family2.Members.Add(new FamilyMember() { Name = "Mark Moe", Age = 31 });
-                        family2.Members.Add(new FamilyMember() { Name = "Norma Moe", Age = 28 });
-                        families.Add(family2);
-                        */
                         var Folders = new List<TreeGDBRegion>();
-                        foreach (var folder in gdbTree.RegionList.Keys)
+                        foreach (var folder in gdbTree.LayerList.Keys)
                         {
-                            var root = new TreeGDBRegion() { Name = folder.ToString("X") };
-                            foreach (var parent in gdbTree.RegionList[folder])
+                            var root = new TreeGDBRegion() { Name = folder.ToString("X4") };
+                            foreach (var parent in gdbTree.LayerList[folder])
                             {
                                 var node1 = new TreeGDBObject() { Name = parent.ObjectLabel };
                                 for(int i = 0; i < parent.ObjectData.TemplateData.Count(); i++)
                                 {
-                                    var node2 = new TreeGDBObjectData()
-                                    {
-                                        Name = parent.ObjectDataLabels[i],
-                                        Data = parent.ObjectData.TemplateData[i].ToString("X")
-                                    };
+                                    var node2 = new TreeGDBObjectData();
+                                    node2.Name = parent.ObjectDataLabels[i];
 
+                                    var datatype = parent.ObjectDataTemplate.ObjectDatatype[(UInt16)i];
+                                    switch (datatype)
+                                    {
+                                        case 0x0000:
+                                            node2.Data = Convert.ToBoolean(BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0)).ToString();  //boolean
+                                            break;
+                                        case 0x0100:
+                                            node2.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(parent.ObjectData.TemplateData[i],0).ToString("X8"); //= dword
+                                            break;
+                                        case 0x0200:
+                                            node2.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0).ToString("X8"); //= dword lots of GroupIndex
+                                            break;
+                                        case 0x0300:
+                                            node2.Data = BitConverter.ToSingle(parent.ObjectData.TemplateData[i], 0).ToString();
+                                            break;
+                                        case 0x0400:
+                                            if (gdbObject.FNVHashes.ContainsKey(BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0)))
+                                            {
+                                                node2.Data = gdbObject.FNVHashes[BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0)]; //= string hash
+                                            }
+                                            else
+                                            {
+                                                node2.Data = BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0).ToString("X8") + " - String not found";
+                                            }
+                                            break;
+                                        case 0x0500:
+                                            node2.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0).ToString("X8"); //= numeric indicating an enumerated type
+                                            break;
+                                        case 0x0600:
+                                            node2.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0).ToString("X8"); //= object hash
+                                            break;
+                                        case 0x0700:
+                                            node2.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0).ToString("X8"); //= object hash
+                                            break;
+                                        default:
+                                            node2.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(parent.ObjectData.TemplateData[i], 0).ToString("X8");
+                                            break;
+                                    }
                                     node1.TreeGDBObjectData.Add(node2);
                                 }
                                 root.TreeGDBObject.Add(node1);

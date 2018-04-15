@@ -8,7 +8,7 @@ namespace GDBEditor
 {
     public class GDBTreeHandling
     {
-        public Dictionary<UInt16,List<GDBObjectTreeItem>> RegionList = new Dictionary<ushort, List<GDBObjectTreeItem>>();
+        public SortedDictionary<UInt16,List<GDBObjectTreeItem>> LayerList = new SortedDictionary<ushort, List<GDBObjectTreeItem>>();
         public List<GDBObjectTreeItem> GDBObjectTree = new List<GDBObjectTreeItem>();
 
         public class GDBObjectTreeItem
@@ -29,8 +29,8 @@ namespace GDBEditor
             {
                 var item = new GDBObjectTreeItem
                 {
-                    ObjectFolder = gdbObject.Unknown[i],
-                    ObjectHash = gdbObject.HashIndex[i],
+                    ObjectFolder = gdbObject.Layer[i],
+                    ObjectHash = gdbObject.ObjectHash[i],
                     ObjectData = gdbObject.TemplateData[i],
                     ObjectDataTemplate = gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate]
                 };
@@ -43,7 +43,7 @@ namespace GDBEditor
                     }
                     else
                     {
-                        item.ObjectDataLabels.Add("Template Label Not Found");
+                        item.ObjectDataLabels.Add("Label not found");
                     }
                 }
 
@@ -56,12 +56,12 @@ namespace GDBEditor
                     }
                     else
                     {
-                        item.ObjectLabel = "String Not Located";
+                        item.ObjectLabel = item.ObjectHash.ToString("X8") + " String not found";
                     }
                 }
                 else
                 {
-                    item.ObjectLabel = "Object Not Located";
+                    item.ObjectLabel = item.ObjectHash.ToString("X8") + " Object not found";
                 }
 
                 GDBObjectTree.Add(item);
@@ -69,13 +69,13 @@ namespace GDBEditor
 
             foreach(var item in GDBObjectTree)
             {
-                if (RegionList.ContainsKey(item.ObjectFolder))
+                if (LayerList.ContainsKey(item.ObjectFolder))
                 {
-                    RegionList[item.ObjectFolder].Add(item); //Change this to label via fnvhash list
+                    LayerList[item.ObjectFolder].Add(item); //Change this to label via fnvhash list
                 }
                 else
                 {
-                    RegionList.Add(item.ObjectFolder, new List<GDBObjectTreeItem> { item });
+                    LayerList.Add(item.ObjectFolder, new List<GDBObjectTreeItem> { item });
                 }
             }
         }

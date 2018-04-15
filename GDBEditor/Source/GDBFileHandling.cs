@@ -18,17 +18,23 @@ namespace GDBEditor
         public uint Count1 { get; set; }
         //End of header
 
+        //[TDCount]
+        public List<TData> TemplateData = new List<TData>();
+        //[TDCount]
+        public List<uint> ObjectHash = new List<uint>();
 
-        public List<TData> TemplateData { get; set; }       //[TDCount]
-        public List<uint> HashIndex { get; set; }           //[TDCount];
-        public List<UInt16> Unknown { get; set; }           //[TDCount];    //Offset or 16bit Hashes or...??
+        //[TDCount]; load+layer
+        //public List<byte> Load = new List<byte>();  //I think this is initial load in the .saves       
+        //public List<byte> Layer = new List<byte>();
+        public List<UInt16> Layer = new List<UInt16>();
+
+
         //public List<ObjectLabel> ObjectLabels { get; set; } //[Count1];
         public HashBlock StringData { get; set; }
 
-
-        public Dictionary<uint, Template> TemplateDictionary = new Dictionary<uint, Template>(); //We'll need this to rebuild later
-        public Dictionary<uint, uint>     ObjectLabels = new Dictionary<uint, uint>(); //Cross objects with FNVHashes
-        public Dictionary<uint, string>   FNVHashes = new Dictionary<uint, string>(); //Keep the hashes handy
+        public SortedDictionary<uint, Template> TemplateDictionary = new SortedDictionary<uint, Template>(); //We'll need this to rebuild later
+        public SortedDictionary<uint, uint>     ObjectLabels = new SortedDictionary<uint, uint>(); //Cross objects with FNVHashes
+        public SortedDictionary<uint, string>   FNVHashes = new SortedDictionary<uint, string>(); //Keep the hashes handy
 
         public GDBFileHandling(BinaryReader buffer)
         {
@@ -42,7 +48,6 @@ namespace GDBEditor
 
             //game objects are just raw data that need a template to tell you what it is.
             //Thankfully the object contains an offset to the template.
-            TemplateData = new List<TData>();
             for (int i = 0; i < TDCount; i++)
             {
                 var tdata = new TData();
@@ -67,20 +72,20 @@ namespace GDBEditor
                 }
 
                 //Data Types
-                template.ObjectDatatype = new Dictionary<ushort, ushort>();
+                template.ObjectDatatype = new SortedDictionary<UInt16, UInt16>();
                 for (int k = 0; k < items; k++)
                 {
-                    var ObjectID = buffer.ReadUInt16();
+                    var ObjectID = buffer.ReadUInt16(); //This isn't sorted right!!
                     var Datatype = buffer.ReadUInt16();
-                    template.ObjectDatatype[ObjectID] = Datatype;
+                    template.ObjectDatatype[(UInt16)k] = Datatype; //ObjectID should have been the key...
                 }
 
                 //Jump back to the data now that we know what it is
                 buffer.BaseStream.Position = originalpos;
-                tdata.TemplateData = new List<uint>();
+                tdata.TemplateData = new List<Byte[]>();
                 for (int v = 0; v < items; v++)
                 {
-                    tdata.TemplateData.Add(buffer.ReadUInt32());
+                    tdata.TemplateData.Add(buffer.ReadBytes(4));
                 }
 
 
@@ -91,31 +96,38 @@ namespace GDBEditor
             //Jump past templates because we already have them all. We'll need to determine its size later in order to rebuild the .gdb though
             buffer.BaseStream.Position = 0x18 + TDStart + TDSize;
 
-            //Should be hashed object, cross link with Object Labels??
-            HashIndex = new List<uint>();
+            //Should be hashed object
+            ObjectHash = new List<uint>();
             for (int i = 0; i < TDCount; i++)
             {
-                HashIndex.Add(buffer.ReadUInt32());
+                ObjectHash.Add(buffer.ReadUInt32());
             }
 
             //We don't know what these are, but I suspect it has something to do with the game regions or region layers, ie Bowerstone_Market (check the .save xml files)
-            Unknown = new List<UInt16>();
+            //Unknown = new List<UInt16>();
+            //Load = new List<byte>();
+            //Layer = new List<byte>();
+            Layer = new List<UInt16>();
             for (int i = 0; i < TDCount; i++)
             {
-                Unknown.Add(buffer.ReadUInt16());
+                Layer.Add(buffer.ReadUInt16()); //This is different from sven's gdb dumper...
             }
 
-            //Don't remember what these are for.
-            //ObjectLabels = new List<ObjectLabel>();
+            //This may be padded?
+            if (TDCount % 2 > 0)
+            {
+                buffer.ReadBytes(2);
+            }
+
+            //Cross references object hashes with label hashes? Sometimes object doesn't exist, and sometimes string doesn't exist. Might've got pulled in from another.gdb or .save??
+            ObjectLabels = new SortedDictionary<uint, uint>();
             for (int i = 0; i < Count1; i++)
             {
                 var Label = buffer.ReadUInt32();
                 var Object = buffer.ReadUInt32();
                 ObjectLabels[Object] = Label;
-                //ObjectLabels.Add(new ObjectLabel {  });
             }
-
-
+            
             //A block of fnv hashed strings consisting of the hash and it's string (null terminated).
             StringData = new HashBlock
             {
