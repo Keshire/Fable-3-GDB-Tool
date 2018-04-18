@@ -6,20 +6,20 @@ using System.Threading.Tasks;
 
 namespace GDBEditor
 {
-    public class TData
+    public class TemplateData
     {
-        public uint         OffsetToTemplate { get; set; }
-        public List<byte[]>   TemplateData { get; set; }
+        public uint             OffsetToTemplate { get; set; }
+        public List<byte[]>     TemplateByteData    { get; set; }
     }
 
     public class Template
     {
         public Byte     NoComponents    { get; set; }   //Boolean I think
         public Byte     Count1          { get; set; }
-        public UInt16   Count2          { get; set; }   //This should be little_endian!! WTF,seems to be used for animation states
+        public UInt16   Count2          { get; set; }   //This should be little_endian!! WTF,seems to be used for animation states?
 
         public List<uint>                   ObjectHashList { get; set; }  //[(Count2 * 256) + Count1];    //(Count2*256) fucking endian...
-        public SortedDictionary<UInt16, UInt16>   ObjectDatatype { get; set; }  //[(Count2 * 256) + Count1];    //This looks to be controlling datatypes used.
+        public Dictionary<UInt16, UInt16>   ObjectDatatype { get; set; }  //[(Count2 * 256) + Count1];    //This looks to be controlling datatypes used.
         //0000 = boolean
         //0100 = dword
         //0200 = dword lots of GroupIndex
@@ -30,18 +30,18 @@ namespace GDBEditor
         //0700 = object hash
     }
 
-    public class ObjectLabel
+    public class ObjectToLabel
     {
-        public uint Label { get; set; }
         public uint Object { get; set; }
+        public uint Label { get; set; }
     }
 
     public class HashBlock
     {
         public uint Header          { get; set; }   // = 00 01 00 00 Always
-        public uint HashTableSize   { get; set; }
-        public uint HashCount       { get; set; }
+        public uint TableSize   { get; set; }
+        public uint Count       { get; set; }
         //public Dictionary<uint, string> fnvhashes { get; set; }   //[HashCount];
-        public List<uint>       HashPointerArray    { get; set; }   //[HashCount];  //Offsets back into StringArray
+        public List<uint> Offsets   { get; set; }   //[HashCount];  //Offsets back into StringArray
     }
 }

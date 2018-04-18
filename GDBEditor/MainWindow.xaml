@@ -29,14 +29,14 @@
                         <TextBlock Text="{Binding Name}" />
                     </StackPanel>
                 </HierarchicalDataTemplate>
-                <DataTemplate DataType="{x:Type local:TreeGDBObjectData}">
+                <HierarchicalDataTemplate DataType="{x:Type local:TreeGDBObjectData}" ItemsSource="{Binding TreeGDBObject}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Name}" />
                         <TextBlock Text=" [" Foreground="Blue" />
                         <TextBlock Text="{Binding Data}" />
                         <TextBlock Text="]" Foreground="Blue" />
                     </StackPanel>
-                </DataTemplate>
+                </HierarchicalDataTemplate>
             </TreeView.Resources>
         </TreeView>
     </DockPanel>

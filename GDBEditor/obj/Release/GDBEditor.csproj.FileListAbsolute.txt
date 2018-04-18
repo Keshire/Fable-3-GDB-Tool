@@ -1,0 +1,15 @@
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\bin\Release\GDBEditor.exe.config
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\bin\Release\GDBEditor.exe
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\bin\Release\GDBEditor.pdb
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\MainWindow.g.cs
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\App.g.cs
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GeneratedInternalTypeHelper.g.cs
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor_MarkupCompile.cache
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor_MarkupCompile.lref
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\MainWindow.baml
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor.g.resources
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor.Properties.Resources.resources
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor.csproj.GenerateResource.cache
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor.csproj.CoreCompileInputs.cache
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor.exe
+C:\Users\Keshire\Downloads\[Dev]\GDBEditor\GDBEditor\obj\Release\GDBEditor.pdb

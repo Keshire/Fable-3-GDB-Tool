@@ -10,118 +10,112 @@ namespace GDBEditor
 {
     public class GDBFileHandling
     {
+        //Keep some dictionaries for each object, We'll probably want to combine them if we load more than one file
+        public Dictionary<uint, Template> TemplateDictionary = new Dictionary<uint, Template>(); //key=offset, value=template, We'll need this to rebuild later
+        public Dictionary<uint, uint> ObjectLabels = new Dictionary<uint, uint>(); //key=ObjectHash, values=fnvhash
+        public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>(); //key=fnvhash, value=string
+
+
         // = Fable 2 used "GDB\0x00", Fable 3 is "0x00000000"
         public char[] GDB_Tag = new char[4];
-        public uint TDCount { get; set; }
-        public uint TDStart { get; set; }
-        public uint TDSize { get; set; }
-        public uint Count1 { get; set; }
+        public uint ObjectCount { get; set; }
+        public uint ObjectSize { get; set; }
+        public uint TemplateSize { get; set; }
+        public uint UniqueObjectCount { get; set; }
         //End of header
 
         //[TDCount]
-        public List<TData> TemplateData = new List<TData>();
-        //[TDCount]
+        public List<TemplateData> TemplateData = new List<TemplateData>();
         public List<uint> ObjectHash = new List<uint>();
+        public List<UInt16> Unknown_UInt16 = new List<UInt16>(); //Are these folders or regions or something?
 
-        //[TDCount]; load+layer
-        //public List<byte> Load = new List<byte>();  //I think this is initial load in the .saves       
-        //public List<byte> Layer = new List<byte>();
-        public List<UInt16> Layer = new List<UInt16>();
-
-
-        //public List<ObjectLabel> ObjectLabels { get; set; } //[Count1];
+        //Header for the strings
         public HashBlock StringData { get; set; }
 
-        public SortedDictionary<uint, Template> TemplateDictionary = new SortedDictionary<uint, Template>(); //We'll need this to rebuild later
-        public SortedDictionary<uint, uint>     ObjectLabels = new SortedDictionary<uint, uint>(); //Cross objects with FNVHashes
-        public SortedDictionary<uint, string>   FNVHashes = new SortedDictionary<uint, string>(); //Keep the hashes handy
-
+        
         public GDBFileHandling(BinaryReader buffer)
         {
             //Get header info
             GDB_Tag = buffer.ReadChars(4);//0x0000
-            TDCount = buffer.ReadUInt32();
-            TDStart = buffer.ReadUInt32();
-            TDSize = buffer.ReadUInt32();
-            Count1 = buffer.ReadUInt32();
+            ObjectCount = buffer.ReadUInt32();
+            ObjectSize = buffer.ReadUInt32();
+            TemplateSize = buffer.ReadUInt32();
+            UniqueObjectCount = buffer.ReadUInt32();
             buffer.ReadUInt32(); //0x0000 End of header 0x18
 
             //game objects are just raw data that need a template to tell you what it is.
             //Thankfully the object contains an offset to the template.
-            for (int i = 0; i < TDCount; i++)
+            for (int i = 0; i < ObjectCount; i++)
             {
-                var tdata = new TData();
-                var template = new Template();
-                tdata.OffsetToTemplate = buffer.ReadUInt32();
+                var td = new TemplateData();
+                var t = new Template();
+                td.OffsetToTemplate = buffer.ReadUInt32();
 
                 var originalpos = buffer.BaseStream.Position; //We're going to come back here after jumping to the template
-                var offset = 0x18 + TDStart + tdata.OffsetToTemplate; //This is the offset to this template (templates are shared)
+                var offset = 0x18 + ObjectSize + td.OffsetToTemplate; //This is the offset to this template (templates are shared)
 
                 //Jump to template, The template basically describes what the data is in the base object
                 buffer.BaseStream.Position = offset;
-                template.NoComponents = buffer.ReadByte();
-                template.Count1 = buffer.ReadByte();
-                template.Count2 = buffer.ReadUInt16(); //This is the wrong endian I think...
-                var items = template.Count1 + (template.Count2 * 256);
+                t.NoComponents = buffer.ReadByte();
+                t.Count1 = buffer.ReadByte();
+                t.Count2 = buffer.ReadUInt16(); //This is the wrong endian I think...
+                var items = t.Count1 + (t.Count2 * 256);
 
                 //Data Labels
-                template.ObjectHashList = new List<uint>();
+                t.ObjectHashList = new List<uint>();
                 for (int j = 0; j < items; j++)
                 {
-                    template.ObjectHashList.Add(buffer.ReadUInt32());
+                    t.ObjectHashList.Add(buffer.ReadUInt32());
                 }
 
                 //Data Types
-                template.ObjectDatatype = new SortedDictionary<UInt16, UInt16>();
+                t.ObjectDatatype = new Dictionary<UInt16, UInt16>();
                 for (int k = 0; k < items; k++)
                 {
                     var ObjectID = buffer.ReadUInt16(); //This isn't sorted right!!
                     var Datatype = buffer.ReadUInt16();
-                    template.ObjectDatatype[(UInt16)k] = Datatype; //ObjectID should have been the key...
+                    t.ObjectDatatype[(UInt16)k] = Datatype; //ObjectID should have been the key...
                 }
 
                 //Jump back to the data now that we know what it is
                 buffer.BaseStream.Position = originalpos;
-                tdata.TemplateData = new List<Byte[]>();
+                td.TemplateByteData = new List<Byte[]>();
                 for (int v = 0; v < items; v++)
                 {
-                    tdata.TemplateData.Add(buffer.ReadBytes(4));
+                    td.TemplateByteData.Add(buffer.ReadBytes(4));
                 }
 
 
-                TemplateDictionary[tdata.OffsetToTemplate] = template;
-                TemplateData.Add(tdata);
+                TemplateDictionary[td.OffsetToTemplate] = t;
+                TemplateData.Add(td);
             }
 
             //Jump past templates because we already have them all. We'll need to determine its size later in order to rebuild the .gdb though
-            buffer.BaseStream.Position = 0x18 + TDStart + TDSize;
+            buffer.BaseStream.Position = 0x18 + ObjectSize + TemplateSize;
 
             //Should be hashed object
             ObjectHash = new List<uint>();
-            for (int i = 0; i < TDCount; i++)
+            for (int i = 0; i < ObjectCount; i++)
             {
                 ObjectHash.Add(buffer.ReadUInt32());
             }
 
             //We don't know what these are, but I suspect it has something to do with the game regions or region layers, ie Bowerstone_Market (check the .save xml files)
-            //Unknown = new List<UInt16>();
-            //Load = new List<byte>();
-            //Layer = new List<byte>();
-            Layer = new List<UInt16>();
-            for (int i = 0; i < TDCount; i++)
+            Unknown_UInt16 = new List<UInt16>();
+            for (int i = 0; i < ObjectCount; i++)
             {
-                Layer.Add(buffer.ReadUInt16()); //This is different from sven's gdb dumper...
+                Unknown_UInt16.Add(buffer.ReadUInt16()); //This is different from sven's gdb dumper...
             }
 
-            //This may be padded?
-            if (TDCount % 2 > 0)
+            //may be padded?
+            if (ObjectCount % 2 > 0)
             {
                 buffer.ReadBytes(2);
             }
 
             //Cross references object hashes with label hashes? Sometimes object doesn't exist, and sometimes string doesn't exist. Might've got pulled in from another.gdb or .save??
-            ObjectLabels = new SortedDictionary<uint, uint>();
-            for (int i = 0; i < Count1; i++)
+            ObjectLabels = new Dictionary<uint, uint>();
+            for (int i = 0; i < UniqueObjectCount; i++)
             {
                 var Label = buffer.ReadUInt32();
                 var Object = buffer.ReadUInt32();
@@ -132,11 +126,11 @@ namespace GDBEditor
             StringData = new HashBlock
             {
                 Header = buffer.ReadUInt32(),             // = 00 01 00 00 Always
-                HashTableSize = buffer.ReadUInt32(),
-                HashCount = buffer.ReadUInt32()
+                TableSize = buffer.ReadUInt32(),
+                Count = buffer.ReadUInt32()
             };
 
-            for (int i = 0; i < StringData.HashCount; i++)
+            for (int i = 0; i < StringData.Count; i++)
             {
                 var hash = buffer.ReadUInt32();
 
@@ -145,14 +139,14 @@ namespace GDBEditor
                 {
                     stringbytes.Add(buffer.ReadChar());
                 }
-                buffer.ReadChar(); //null termination
+                buffer.ReadChar(); //null string termination not handled by ReadString()
                 FNVHashes[hash] = new string(stringbytes.ToArray());
             }
             
-            StringData.HashPointerArray = new List<uint>();         //[HashCount];  //Offsets back into StringArray
-            for (int i = 0; i < StringData.HashCount; i++)
+            StringData.Offsets = new List<uint>();         //Offsets back into StringArray, not sure what these are used for...
+            for (int i = 0; i < StringData.Count; i++)
             {
-                StringData.HashPointerArray.Add(buffer.ReadUInt32());
+                StringData.Offsets.Add(buffer.ReadUInt32());
             }
 
         }
