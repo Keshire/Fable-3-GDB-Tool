@@ -28,7 +28,7 @@ namespace GDBEditor
         public string file;
         public string filename;
         public List<GDBFileHandling> gdbObjects = new List<GDBFileHandling>();
-        public List<GDBTreeHandling> gdbTrees = new List<GDBTreeHandling>();
+        public Dictionary<string, GDBTreeHandling> gdbTrees = new Dictionary<string, GDBTreeHandling>();
         public List<string> openfiles = new List<string>();
         //public FileIO efile = new FileIO();
 
@@ -53,17 +53,14 @@ namespace GDBEditor
                     using (BinaryReader gdbBuffer = new BinaryReader(File.Open(file, FileMode.Open)))
                     {
                         //This should be a list for when we switch to opening more files.
-                        gdbObjects.Add(new GDBFileHandling(gdbBuffer));
+                        //gdbObjects.Add(new GDBFileHandling(gdbBuffer));
 
-                        openfiles.Add(filename);
                         //gdbObject needs to be rebuilt as a readable tree to plug into a tree view.
-                        for (int i = 0; i < gdbObjects.Count(); i++)
-                        {
-                            gdbTrees.Add(new GDBTreeHandling(gdbObjects[i]));
-                            gdbTrees[i].ObjectFilename = openfiles[i];
-                            trvNodes.ItemsSource = gdbTrees[i].Folders;
-                        }
-                        //trvNodes.ItemsSource = gdbTrees;// families;
+                        gdbTrees[filename] = new GDBTreeHandling(new GDBFileHandling(gdbBuffer));
+
+                        //Root
+                        trv.Items.Add(new TreeViewItem() { Header = filename, Tag = new TreeGDBFile(), Items = { "Loading..." } });
+
                     }
                 }
                 catch (IOException)
@@ -75,6 +72,40 @@ namespace GDBEditor
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             //Eventually allow editing and saving.
+        }
+
+        public void TreeViewItem_Expanded(object sender, RoutedEventArgs e)
+        {
+            TreeViewItem item = e.Source as TreeViewItem;
+            if ((item.Items.Count == 1) && (item.Items[0] is string))
+            {
+                item.Items.Clear();
+                if (item.Tag is TreeGDBFile)
+                {
+                    foreach (var folder in gdbTrees[item.Header.ToString()].Folders)
+                        item.Items.Add(new TreeViewItem() { Header = folder.Name, Tag = folder, Items = { "Loading..." } });
+                }
+                if (item.Tag is TreeGDBRegion)
+                {
+                    foreach (var gdbo in (item.Tag as TreeGDBRegion).TreeGDBObject)
+                        item.Items.Add(new TreeViewItem() { Header = gdbo.Name, Tag = gdbo, Items = { "Loading..." } });
+                }
+                if (item.Tag is TreeGDBObject)
+                {
+                    foreach (var gdbv in (item.Tag as TreeGDBObject).TreeGDBObjectData)
+                    {
+                        if (gdbv.Data is GDBTreeHandling.GDBObjectTreeItem)
+                        {
+                            var gdbnode = GDBTreeHandling.TreeGDBObject((GDBTreeHandling.GDBObjectTreeItem)gdbv.Data);
+                            item.Items.Add(new TreeViewItem() { Header = "parent ["+gdbnode.Name+"]", Tag = gdbnode, Items = { "Loading..." } });
+                        }
+                        else
+                        {
+                            item.Items.Add(new TreeViewItem() { Header = gdbv.Name + " [" + gdbv.Data.ToString() + "] ", Tag = gdbv });
+                        }
+                    }   
+                }
+            }
         }
     }
 }

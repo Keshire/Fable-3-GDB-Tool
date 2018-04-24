@@ -8,37 +8,44 @@ using System.Threading.Tasks;
 namespace GDBEditor
 {
 
+    public class TreeGDBFile
+    {
+        public TreeGDBFile()
+        {
+            this.TreeGDBRegion = new ObservableCollection<TreeGDBRegion>();
+        }
+        public string Name { get; set; }
+        public ObservableCollection<TreeGDBRegion> TreeGDBRegion { get; set; }
+    }
+
     public class TreeGDBRegion
     {
-        public string Name { get; set; }
-        public ObservableCollection<TreeGDBObject> TreeGDBObject { get; set; }
-
         public TreeGDBRegion()
         {
             this.TreeGDBObject = new ObservableCollection<TreeGDBObject>();
         }
+        public string Name { get; set; }
+        public ObservableCollection<TreeGDBObject> TreeGDBObject { get; set; }
     }
 
     public class TreeGDBObject
     {
-        public string Name { get; set; }
-        public ObservableCollection<TreeGDBObjectData> TreeGDBObjectData { get; set; }
-
         public TreeGDBObject()
         {
             this.TreeGDBObjectData = new ObservableCollection<TreeGDBObjectData>();
         }
+        public string Name { get; set; }
+        public ObservableCollection<TreeGDBObjectData> TreeGDBObjectData { get; set; }
     }
 
     public class TreeGDBObjectData
     {
-        public string Name { get; set; }
-        public string Data { get; set; }
-        public ObservableCollection<TreeGDBObject> TreeGDBObject { get; set; }
-
         public TreeGDBObjectData()
         {
             this.TreeGDBObject = new ObservableCollection<TreeGDBObject>();
         }
+        public string Name { get; set; }
+        public object Data { get; set; }
+        public ObservableCollection<TreeGDBObject> TreeGDBObject { get; set; }
     }
 }
