@@ -15,6 +15,8 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 
 using System.IO;
+using System.Xml.Linq;
+using System.Text.RegularExpressions;
 
 namespace GDBEditor
 {
@@ -27,9 +29,10 @@ namespace GDBEditor
         public string[] args = Environment.GetCommandLineArgs();
         public string file;
         public string filename;
-        public List<GDBFileHandling> gdbObjects = new List<GDBFileHandling>();
+        public Dictionary<string, GDBFileHandling> gdbObjects = new Dictionary<string, GDBFileHandling>();
         public Dictionary<string, GDBTreeHandling> gdbTrees = new Dictionary<string, GDBTreeHandling>();
-        public List<string> openfiles = new List<string>();
+
+        static public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>();
         //public FileIO efile = new FileIO();
 
         public MainWindow()
@@ -39,32 +42,61 @@ namespace GDBEditor
 
         private void Open_Click(object sender, RoutedEventArgs e)
         {
-            var ofd = new Microsoft.Win32.OpenFileDialog { Filter = "GDB Files|*.gdb|All Files|*.*", FilterIndex = 1 };
+            var ofd = new Microsoft.Win32.OpenFileDialog { Filter = "GDB Files|*.gdb|SAVE Files|*.save|All Files|*.*", FilterIndex = 1 };
 
             // Call the ShowDialog method to show the dialog box.
             var userClickedOK = ofd.ShowDialog();
-
-            if (userClickedOK == true) // Test result.
+            if (userClickedOK == true)
             {
                 file = ofd.FileName;
                 filename = System.IO.Path.GetFileName(file);
                 try
                 {
-                    using (BinaryReader gdbBuffer = new BinaryReader(File.Open(file, FileMode.Open)))
+                    if (System.IO.Path.GetExtension(file) == ".save")
                     {
-                        //This should be a list for when we switch to opening more files.
-                        //gdbObjects.Add(new GDBFileHandling(gdbBuffer));
+                        XElement xmlHashList = XElement.Load(file);
+                        foreach (var node in xmlHashList.Descendants())
+                        {
+                            if (node.Name == "Entity")
+                            {
+                                if (!FNVHashes.ContainsKey(Convert.ToUInt32(node.Value, 16)))
+                                {
+                                    FNVHashes[Convert.ToUInt32(node.Value, 16)] = node.FirstAttribute.Value;
+                                }
+                            }
+                        }
+                    }
+                    else if (System.IO.Path.GetExtension(file) == ".gdb")
+                    {
+                        using (BinaryReader gdbBuffer = new BinaryReader(File.Open(file, FileMode.Open)))
+                        {
+                            trv.Items.Clear();
+                            //Load the gdb into memory
+                            gdbObjects[filename] = new GDBFileHandling(gdbBuffer);
 
-                        //gdbObject needs to be rebuilt as a readable tree to plug into a tree view.
-                        gdbTrees[filename] = new GDBTreeHandling(new GDBFileHandling(gdbBuffer));
+                            //Add the strings to a global list
+                            foreach (KeyValuePair<uint, string> fnv in gdbObjects[filename].FNVHashes)
+                            {
+                                if (!FNVHashes.ContainsKey(fnv.Key))
+                                {
+                                    FNVHashes[fnv.Key] = fnv.Value;
+                                }
+                            }
 
-                        //Root
-                        trv.Items.Add(new TreeViewItem() { Header = filename, Tag = new TreeGDBFile(), Items = { "Loading..." } });
-
+                            //Build a tree for the view
+                            gdbTrees[filename] = new GDBTreeHandling(gdbObjects[filename]);
+                        }
                     }
                 }
                 catch (IOException)
                 {
+                }
+
+                //rebuild the treeview tree to account for new fnv's each time.
+                foreach (var tree in gdbObjects.Keys)
+                {
+                    gdbTrees[tree] = new GDBTreeHandling(gdbObjects[tree]);
+                    trv.Items.Add(new TreeViewItem() { Header = tree, Tag = new TreeGDBFile(), Items = { "Loading..." } });
                 }
             }
         }
@@ -74,6 +106,22 @@ namespace GDBEditor
             //Eventually allow editing and saving.
         }
 
+        public void TreeViewItem_DoubleClick(object sender, RoutedEventArgs e)
+        {
+            //For Editing
+            if (sender is TreeViewItem)
+                if (!((TreeViewItem)sender).IsSelected)
+                    return;
+            TreeViewItem item = trv.SelectedItem as TreeViewItem;
+            if (item.Tag is TreeGDBObjectData)
+            {
+                TreeViewItem parent = item.Parent as TreeViewItem;
+                TreeGDBObject parentgdb = parent.Tag as TreeGDBObject;
+            }
+        }
+
+
+        //For Lazy Loading
         public void TreeViewItem_Expanded(object sender, RoutedEventArgs e)
         {
             TreeViewItem item = e.Source as TreeViewItem;
@@ -92,7 +140,7 @@ namespace GDBEditor
                 }
                 if (item.Tag is TreeGDBObject)
                 {
-                    foreach (var gdbv in (item.Tag as TreeGDBObject).TreeGDBObjectData)
+                    foreach (TreeGDBObjectData gdbv in (item.Tag as TreeGDBObject).TreeGDBObjectData)
                     {
                         if (gdbv.Data is GDBTreeHandling.GDBObjectTreeItem)
                         {
@@ -104,6 +152,53 @@ namespace GDBEditor
                             item.Items.Add(new TreeViewItem() { Header = gdbv.Name + " [" + gdbv.Data.ToString() + "] ", Tag = gdbv });
                         }
                     }   
+                }
+            }
+        }
+
+        //String Search
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+            trv.Items.Clear();
+
+            if (textbox.Text == "")
+            {
+                foreach (KeyValuePair<string, GDBTreeHandling> file in gdbTrees)
+                {
+                    trv.Items.Add(new TreeViewItem() { Header = file.Key, Tag = new TreeGDBFile(), Items = { "Loading..." } });
+                }
+            }
+            else
+            {
+                //Rebuild Tree with just searched item
+                foreach (KeyValuePair<string, GDBTreeHandling> file in gdbTrees)
+                {
+                    var root = new TreeViewItem { Header = file.Key, Tag = new TreeGDBFile() };
+                    foreach (var gdbtree in file.Value.Folders)
+                    {
+                        var folder = new TreeViewItem { Header = gdbtree.Name, Tag = gdbtree };
+                        foreach (var gdbobject in gdbtree.TreeGDBObject)
+                        {
+                            if (Regex.IsMatch(gdbobject.Name,textbox.Text))
+                            {
+                                folder.Items.Add(new TreeViewItem() { Header = gdbobject.Name, Tag = gdbobject, Items = { "Loading..." } });
+                            }
+                            else
+                            {
+                                Boolean add_folder = false;
+                                foreach (TreeGDBObjectData gbdobject_parameter in gdbobject.TreeGDBObjectData)
+                                {
+                                    if (Regex.IsMatch(gdbobject.Name, textbox.Text) && !add_folder)
+                                    {
+                                        add_folder = true;
+                                        folder.Items.Add(new TreeViewItem() { Header = gdbobject.Name, Tag = gdbobject, Items = { "Loading..." } });
+                                    }
+                                }
+                            }
+                        }
+                        root.Items.Add(folder);
+                    }
+                    trv.Items.Add(root);
                 }
             }
         }

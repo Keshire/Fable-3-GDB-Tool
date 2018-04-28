@@ -8,11 +8,12 @@ namespace GDBEditor
     public class GDBTreeHandling
     {
         static public Dictionary<uint, GDBObjectTreeItem> ItemList = new Dictionary<uint, GDBObjectTreeItem>();
+        static public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>();
         public List<TreeGDBRegion> Folders = new List<TreeGDBRegion>();
+
 
         public class GDBObjectTreeItem
         {
-            public GDBFileHandling gdbObject;
             public UInt16 ObjectFolder;
             public uint   ObjectHash;
             public string ObjectLabel;
@@ -20,42 +21,53 @@ namespace GDBEditor
             public TemplateData ObjectData;
             public Template ObjectDataTemplate;
             public List<string> ObjectDataLabels = new List<string>();
-            
         }
 
         public GDBTreeHandling(GDBFileHandling gdbObject)
         {
+
+            FNVHashes = MainWindow.FNVHashes;
             var FolderList = new SortedDictionary<UInt16, List<GDBObjectTreeItem>>();
             for (int i = 0; i < gdbObject.ObjectCount; i++)
             {
-                var item = new GDBObjectTreeItem();
+                var item = new GDBObjectTreeItem
+                {
+                    ObjectFolder = gdbObject.Unknown_UInt16[i],
+                    ObjectHash = gdbObject.ObjectHash[i],
+                    ObjectData = gdbObject.TemplateData[i],
+                    ObjectDataTemplate = gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate]
+                };
 
-                item.gdbObject = gdbObject;
-                item.ObjectFolder = gdbObject.Unknown_UInt16[i];
-                item.ObjectHash = gdbObject.ObjectHash[i];
-                item.ObjectData = gdbObject.TemplateData[i];
-                item.ObjectDataTemplate = gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate];
-                
                 foreach (var fnvhash in gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate].ObjectHashList)
                 {
-                    item.ObjectDataLabels.Add(gdbObject.FNVHashes[fnvhash]);
+                    item.ObjectDataLabels.Add(FNVHashes[fnvhash]);
                 }
 
 
                 if (gdbObject.ObjectLabels.ContainsKey(item.ObjectHash))
                 {
-                    if (gdbObject.FNVHashes.ContainsKey(gdbObject.ObjectLabels[item.ObjectHash]))
+                    if (FNVHashes.ContainsKey(gdbObject.ObjectLabels[item.ObjectHash]))
                     {
-                        item.ObjectLabel = gdbObject.FNVHashes[gdbObject.ObjectLabels[item.ObjectHash]];
+                        item.ObjectLabel = FNVHashes[gdbObject.ObjectLabels[item.ObjectHash]];
+                    }
+                    else if (FNVHashes.ContainsKey(item.ObjectHash))
+                    {
+                        //Comes from outside the gdb
+                        item.ObjectLabel = FNVHashes[item.ObjectHash];
                     }
                     else
                     {
-                        item.ObjectLabel = item.ObjectHash.ToString("X8") + " not in fnv dict";
+                        item.ObjectLabel = item.ObjectHash.ToString("X8");
                     }
+                }
+                else if(FNVHashes.ContainsKey(item.ObjectHash)) 
+                {
+                    //Comes from outside the gdb
+                    item.ObjectLabel = FNVHashes[item.ObjectHash];
                 }
                 else
                 {
-                    item.ObjectLabel = item.ObjectHash.ToString("X8") + " not in object dict";
+                    item.ObjectLabel = item.ObjectHash.ToString("X8");
                 }
 
 
@@ -76,7 +88,7 @@ namespace GDBEditor
             Folders = new List<TreeGDBRegion>();
             foreach (var folder in FolderList.Keys)
             {
-                var root = new TreeGDBRegion() { Name = folder.ToString("X4") };
+                var root = new TreeGDBRegion() { Name = folder.ToString("X4"), TreeGDBObject = new List<TreeGDBObject>() };
                 foreach (var parent in FolderList[folder])
                 {
                     root.TreeGDBObject.Add(TreeGDBObject(parent));
@@ -87,7 +99,7 @@ namespace GDBEditor
 
         static public TreeGDBObject TreeGDBObject(GDBObjectTreeItem item)
         {
-            var node = new TreeGDBObject() { Name = item.ObjectLabel };
+            var node = new TreeGDBObject() { Name = item.ObjectLabel, Data = item, TreeGDBObjectData = new List<TreeGDBObjectData>() };
             for (int i = 0; i < item.ObjectData.TemplateByteData.Count(); i++)
             {
                 var child = new TreeGDBObjectData() { Name = item.ObjectDataLabels[i] };
@@ -107,13 +119,13 @@ namespace GDBEditor
                         child.Data = BitConverter.ToSingle(item.ObjectData.TemplateByteData[i], 0).ToString();
                         break;
                     case 0x0400:
-                        if (item.gdbObject.FNVHashes.ContainsKey(BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)))
+                        if (FNVHashes.ContainsKey(BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)))
                         {
-                            child.Data = item.gdbObject.FNVHashes[BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)]; //= string hash
+                            child.Data = FNVHashes[BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)]; //= string hash
                         }
                         else
                         {
-                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8") + " not in fnv dict";
+                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
                         }
                         break;
                     case 0x0500:
@@ -126,7 +138,7 @@ namespace GDBEditor
                         }
                         else
                         {
-                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8") + " not in object dict";
+                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
                         }
                         break;
                     case 0x0700:
@@ -136,7 +148,7 @@ namespace GDBEditor
                         }
                         else
                         {
-                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8") + " not in object dict";
+                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
                         }
                         break;
                     default:
