@@ -75,7 +75,7 @@ namespace GDBEditor
                             gdbObjects[filename] = new GDBFileHandling(gdbBuffer);
 
                             //Add the strings to a global list
-                            foreach (KeyValuePair<uint, string> fnv in gdbObjects[filename].FNVHashes)
+                            foreach (KeyValuePair<uint, string> fnv in gdbObjects[filename].FNVToString)
                             {
                                 if (!FNVHashes.ContainsKey(fnv.Key))
                                 {
@@ -113,7 +113,7 @@ namespace GDBEditor
                 if (!((TreeViewItem)sender).IsSelected)
                     return;
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
-            if (item.Tag is TreeGDBObjectData)
+            if (item != null && item.Tag is TreeGDBObjectData)
             {
                 TreeViewItem parent = item.Parent as TreeViewItem;
                 TreeGDBObject parentgdb = parent.Tag as TreeGDBObject;

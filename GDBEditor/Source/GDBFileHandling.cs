@@ -8,121 +8,110 @@ using System.IO;
 
 namespace GDBEditor
 {
+    [Serializable]
     public class GDBFileHandling
     {
-        //Keep some dictionaries for each object, We'll probably want to combine them if we load more than one file
-        public Dictionary<uint, Template> TemplateDictionary = new Dictionary<uint, Template>(); //key=offset, value=template, We'll need this to rebuild later
-        public Dictionary<uint, uint> ObjectLabels = new Dictionary<uint, uint>(); //key=ObjectHash, values=fnvhash
-        public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>(); //key=fnvhash, value=string
-
-
-        // = Fable 2 used "GDB\0x00", Fable 3 is "0x00000000"
-        public char[] GDB_Tag = new char[4];
-        public uint ObjectCount { get; set; }
-        public uint ObjectSize { get; set; }
-        public uint TemplateSize { get; set; }
-        public uint UniqueObjectCount { get; set; }
-        //End of header
-
-        //[TDCount]
-        public List<TemplateData> TemplateData = new List<TemplateData>();
-        public List<uint> ObjectHash = new List<uint>();
-        public List<UInt16> Unknown_UInt16 = new List<UInt16>(); //Are these folders or regions or something?
-
-        //Header for the strings
+        public GDBHeader header { get; set; }
+        public List<Record> Records = new List<Record>();
+        public Dictionary<UInt32, UInt32> RecordToFNV = new Dictionary<UInt32, UInt32>(); //key=hash, values=fnv
+        public Dictionary<UInt32, string> FNVToString = new Dictionary<UInt32, string>(); //key=fnv, value=string
         public HashBlock StringData { get; set; }
-
-        
         public GDBFileHandling(BinaryReader buffer)
         {
-            //Get header info
-            GDB_Tag = buffer.ReadChars(4);//0x0000
-            ObjectCount = buffer.ReadUInt32();
-            ObjectSize = buffer.ReadUInt32();
-            TemplateSize = buffer.ReadUInt32();
-            UniqueObjectCount = buffer.ReadUInt32();
-            buffer.ReadUInt32(); //0x0000 End of header 0x18
-
-            //game objects are just raw data that need a template to tell you what it is.
-            //Thankfully the object contains an offset to the template.
-            for (int i = 0; i < ObjectCount; i++)
+            //Get header info 0x18
+            header = new GDBHeader
             {
-                var td = new TemplateData();
-                var t = new Template();
-                td.OffsetToTemplate = buffer.ReadUInt32();
+                GDB_Tag = buffer.ReadChars(4),//0x0000
+                RecordCount = buffer.ReadUInt32(),
+                RecordBlockSize = buffer.ReadUInt32(),
+                RowTypeSize = buffer.ReadUInt32(),
+                UniqueRecordCount = buffer.ReadUInt32(),
+                Padding = buffer.ReadUInt32() //0x0000 End of header
+            };
 
-                var originalpos = buffer.BaseStream.Position; //We're going to come back here after jumping to the template
-                var offset = 0x18 + ObjectSize + td.OffsetToTemplate; //This is the offset to this template (templates are shared)
+            //records are just raw data that need a rowtype to tell you what it is.
+            //Thankfully the record contains an offset to the rowtype.
+            for (int i = 0; i < header.RecordCount; i++)
+            {
+                RowData d = new RowData { RowTypeOffset = buffer.ReadUInt32() };
+                Int64 RowDataPos = buffer.BaseStream.Position; //We're going to come back here after jumping to the template
 
-                //Jump to template, The template basically describes what the data is in the base object
-                buffer.BaseStream.Position = offset;
-                t.NoComponents = buffer.ReadByte();
-                t.Count1 = buffer.ReadByte();
-                t.Count2 = buffer.ReadUInt16(); //This is the wrong endian I think...
-                var items = t.Count1 + (t.Count2 * 256);
+
+                //Jump to rowtype, The rowtype basically describes what the data is in the record
+                Int64 RowTypePos = (Int64)(0x18 + header.RecordBlockSize + d.RowTypeOffset);
+                buffer.BaseStream.Position = RowTypePos;
+
+                RowType t = new RowType 
+                {
+                    Components = buffer.ReadByte(),
+                    Columns = buffer.ReadByte(),
+                    Count2 = buffer.ReadUInt16() //This is the wrong endian I think...
+                };
+                
+                int totalColumns = t.Columns + (t.Count2 * 256);
 
                 //Data Labels
-                t.ObjectHashList = new List<uint>();
-                for (int j = 0; j < items; j++)
+                t.Column_FNV = new List<UInt32>();
+                for (int j = 0; j < totalColumns; j++)
                 {
-                    t.ObjectHashList.Add(buffer.ReadUInt32());
+                    t.Column_FNV.Add(buffer.ReadUInt32());
                 }
 
                 //Data Types
-                t.ObjectDatatype = new Dictionary<UInt16, UInt16>();
-                for (int k = 0; k < items; k++)
+                t.Data_Type = new Dictionary<UInt16, UInt16>();
+                for (int j = 0; j < totalColumns; j++)
                 {
-                    var ObjectID = buffer.ReadUInt16(); //This isn't sorted right!!
-                    var Datatype = buffer.ReadUInt16();
-                    t.ObjectDatatype[(UInt16)k] = Datatype; //ObjectID should have been the key...
+                    UInt16 DataID = buffer.ReadUInt16(); //This doesn't make any sense... Not in order
+                    UInt16 Datatype = buffer.ReadUInt16();
+                    t.Data_Type[(UInt16)j] = Datatype; //I assume DataID is supposed to be a key, but it might be a lookup into something else??
                 }
 
                 //Jump back to the data now that we know what it is
-                buffer.BaseStream.Position = originalpos;
-                td.TemplateByteData = new List<Byte[]>();
-                for (int v = 0; v < items; v++)
+                buffer.BaseStream.Position = RowDataPos;
+                d.RowDataByteArray = new List<Byte[]>();
+                for (int j = 0; j < totalColumns; j++)
                 {
-                    td.TemplateByteData.Add(buffer.ReadBytes(4));
+                    d.RowDataByteArray.Add(buffer.ReadBytes(4));
                 }
 
-
-                TemplateDictionary[td.OffsetToTemplate] = t;
-                TemplateData.Add(td);
+                Records.Add(new Record { rowtype = t, rowdata = d });
             }
 
             //Jump past templates because we already have them all. We'll need to determine its size later in order to rebuild the .gdb though
-            buffer.BaseStream.Position = 0x18 + ObjectSize + TemplateSize;
+            buffer.BaseStream.Position = 0x18 + header.RecordBlockSize + header.RowTypeSize;
 
-            //Should be hashed object
-            ObjectHash = new List<uint>();
-            for (int i = 0; i < ObjectCount; i++)
+            //Should be hash
+            foreach (Record r in Records)
             {
-                ObjectHash.Add(buffer.ReadUInt32());
+                r.hash = buffer.ReadUInt32();
             }
 
-            //We don't know what these are, but I suspect it has something to do with the game regions or region layers, ie Bowerstone_Market (check the .save xml files)
-            Unknown_UInt16 = new List<UInt16>();
-            for (int i = 0; i < ObjectCount; i++)
+            //We don't know what these are, but I suspect it has something to do with the game regions or region layers, 
+            //ie Bowerstone_Market (check the .save xml files)
+            foreach (Record r in Records) 
             {
-                Unknown_UInt16.Add(buffer.ReadUInt16()); //This is different from sven's gdb dumper...
+                r.partition = buffer.ReadUInt16();
             }
 
-            //may be padded?
-            if (ObjectCount % 2 > 0)
+            //may be padded? I don't think it uses a standard block size...
+            if (header.RecordCount % 2 > 0)
             {
                 buffer.ReadBytes(2);
             }
 
-            //Cross references object hashes with label hashes? Sometimes object doesn't exist, and sometimes string doesn't exist. Might've got pulled in from another.gdb or .save??
-            ObjectLabels = new Dictionary<uint, uint>();
-            for (int i = 0; i < UniqueObjectCount; i++)
+            //END OF RECORD DATA
+
+            //Cross references record hash with label hash? Sometimes object doesn't exist, and sometimes string doesn't exist. 
+            //Might've got pulled in from another.gdb or .save??
+            RecordToFNV = new Dictionary<uint, uint>();
+            for (int i = 0; i < header.UniqueRecordCount; i++)
             {
-                var Label = buffer.ReadUInt32();
-                var Object = buffer.ReadUInt32();
-                ObjectLabels[Object] = Label;
+                uint fnv = buffer.ReadUInt32();
+                uint row = buffer.ReadUInt32();
+                RecordToFNV[row] = fnv;
             }
             
-            //A block of fnv hashed strings consisting of the hash and it's string (null terminated).
+            //A block of fnv strings consisting of the fnv and string (null terminated).
             StringData = new HashBlock
             {
                 Header = buffer.ReadUInt32(),             // = 00 01 00 00 Always
@@ -132,7 +121,7 @@ namespace GDBEditor
 
             for (int i = 0; i < StringData.Count; i++)
             {
-                var hash = buffer.ReadUInt32();
+                uint fnv = buffer.ReadUInt32();
 
                 var stringbytes = new List<char>();
                 while (buffer.PeekChar() != 0x00)
@@ -140,7 +129,7 @@ namespace GDBEditor
                     stringbytes.Add(buffer.ReadChar());
                 }
                 buffer.ReadChar(); //null string termination not handled by ReadString()
-                FNVHashes[hash] = new string(stringbytes.ToArray());
+                FNVToString[fnv] = new string(stringbytes.ToArray());
             }
             
             StringData.Offsets = new List<uint>();         //Offsets back into StringArray, not sure what these are used for...
@@ -148,19 +137,6 @@ namespace GDBEditor
             {
                 StringData.Offsets.Add(buffer.ReadUInt32());
             }
-
-        }
-
-        //Just in case I need to convert a string back to hash
-        public static uint FnvHash(string str)
-        {
-            long num = -2128831035;
-            for (int i = 0; i <= str.Length - 1; i++)
-            {
-                num = (num * 16777619 & -1);
-                num ^= (65535 & Convert.ToUInt32(str[i]));
-            }
-            return (uint)num;
         }
     }
 }

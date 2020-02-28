@@ -11,16 +11,15 @@ namespace GDBEditor
         static public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>();
         public List<TreeGDBRegion> Folders = new List<TreeGDBRegion>();
 
-
         public class GDBObjectTreeItem
         {
-            public UInt16 ObjectFolder;
-            public uint   ObjectHash;
-            public string ObjectLabel;
+            public UInt16 partition;
+            public uint   hash;
+            public string label;
 
-            public TemplateData ObjectData;
-            public Template ObjectDataTemplate;
-            public List<string> ObjectDataLabels = new List<string>();
+            public RowData data;
+            public RowType type;
+            public List<string> column_names = new List<string>();
         }
 
         public GDBTreeHandling(GDBFileHandling gdbObject)
@@ -28,60 +27,60 @@ namespace GDBEditor
 
             FNVHashes = MainWindow.FNVHashes;
             var FolderList = new SortedDictionary<UInt16, List<GDBObjectTreeItem>>();
-            for (int i = 0; i < gdbObject.ObjectCount; i++)
+            for (int i = 0; i < gdbObject.header.RecordCount; i++)
             {
-                var item = new GDBObjectTreeItem
+                GDBObjectTreeItem item = new GDBObjectTreeItem
                 {
-                    ObjectFolder = gdbObject.Unknown_UInt16[i],
-                    ObjectHash = gdbObject.ObjectHash[i],
-                    ObjectData = gdbObject.TemplateData[i],
-                    ObjectDataTemplate = gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate]
+                    partition = gdbObject.Records[i].partition,
+                    hash = gdbObject.Records[i].hash,
+                    data = gdbObject.Records[i].rowdata,
+                    type = gdbObject.Records[i].rowtype
                 };
 
-                foreach (var fnvhash in gdbObject.TemplateDictionary[gdbObject.TemplateData[i].OffsetToTemplate].ObjectHashList)
+                foreach (uint fnvhash in gdbObject.Records[i].rowtype.Column_FNV)
                 {
-                    item.ObjectDataLabels.Add(FNVHashes[fnvhash]);
+                    item.column_names.Add(FNVHashes[fnvhash]);
                 }
 
 
-                if (gdbObject.ObjectLabels.ContainsKey(item.ObjectHash))
+                if (gdbObject.RecordToFNV.ContainsKey(item.hash))
                 {
-                    if (FNVHashes.ContainsKey(gdbObject.ObjectLabels[item.ObjectHash]))
+                    if (FNVHashes.ContainsKey(gdbObject.RecordToFNV[item.hash]))
                     {
-                        item.ObjectLabel = FNVHashes[gdbObject.ObjectLabels[item.ObjectHash]];
+                        item.label = FNVHashes[gdbObject.RecordToFNV[item.hash]];
                     }
-                    else if (FNVHashes.ContainsKey(item.ObjectHash))
+                    else if (FNVHashes.ContainsKey(item.hash))
                     {
                         //Comes from outside the gdb
-                        item.ObjectLabel = FNVHashes[item.ObjectHash];
+                        item.label = FNVHashes[item.hash];
                     }
                     else
                     {
-                        item.ObjectLabel = item.ObjectHash.ToString("X8");
+                        item.label = item.hash.ToString("X8");
                     }
                 }
-                else if(FNVHashes.ContainsKey(item.ObjectHash)) 
+                else if(FNVHashes.ContainsKey(item.hash)) 
                 {
                     //Comes from outside the gdb
-                    item.ObjectLabel = FNVHashes[item.ObjectHash];
+                    item.label = FNVHashes[item.hash];
                 }
                 else
                 {
-                    item.ObjectLabel = item.ObjectHash.ToString("X8");
+                    item.label = item.hash.ToString("X8");
                 }
 
 
                 //Keep a list of items by hash
-                ItemList[item.ObjectHash] = item;
+                ItemList[item.hash] = item;
                 
                 //Keep a sorted list of items by unknown
-                if (FolderList.ContainsKey(item.ObjectFolder))
+                if (FolderList.ContainsKey(item.partition))
                 {
-                    FolderList[item.ObjectFolder].Add(item);
+                    FolderList[item.partition].Add(item);
                 }
                 else
                 {
-                    FolderList.Add(item.ObjectFolder, new List<GDBObjectTreeItem> { item });
+                    FolderList.Add(item.partition, new List<GDBObjectTreeItem> { item });
                 }
             }
 
@@ -99,60 +98,60 @@ namespace GDBEditor
 
         static public TreeGDBObject TreeGDBObject(GDBObjectTreeItem item)
         {
-            var node = new TreeGDBObject() { Name = item.ObjectLabel, Data = item, TreeGDBObjectData = new List<TreeGDBObjectData>() };
-            for (int i = 0; i < item.ObjectData.TemplateByteData.Count(); i++)
+            var node = new TreeGDBObject() { Name = item.label, Data = item, TreeGDBObjectData = new List<TreeGDBObjectData>() };
+            for (int i = 0; i < item.data.RowDataByteArray.Count(); i++)
             {
-                var child = new TreeGDBObjectData() { Name = item.ObjectDataLabels[i] };
-                var datatype = item.ObjectDataTemplate.ObjectDatatype[(UInt16)i];
+                var child = new TreeGDBObjectData() { Name = item.column_names[i] };
+                UInt16 datatype = item.type.Data_Type[(UInt16)i];
                 switch (datatype)
                 {
                     case 0x0000:
-                        child.Data = Convert.ToBoolean(BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)).ToString();  //boolean
+                        child.Data = Convert.ToBoolean(BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)).ToString();  //boolean
                         break;
                     case 0x0100:
-                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8"); //= dword
+                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8"); //= dword
                         break;
                     case 0x0200:
-                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8"); //= dword lots of GroupIndex
+                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8"); //= dword lots of GroupIndex
                         break;
                     case 0x0300:
-                        child.Data = BitConverter.ToSingle(item.ObjectData.TemplateByteData[i], 0).ToString();
+                        child.Data = BitConverter.ToSingle(item.data.RowDataByteArray[i], 0).ToString();
                         break;
                     case 0x0400:
-                        if (FNVHashes.ContainsKey(BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)))
+                        if (FNVHashes.ContainsKey(BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)))
                         {
-                            child.Data = FNVHashes[BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)]; //= string hash
+                            child.Data = FNVHashes[BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)]; //= string hash
                         }
                         else
                         {
-                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
+                            child.Data = BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8");
                         }
                         break;
                     case 0x0500:
-                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8"); //= numeric indicating an enumerated type
+                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8"); //= numeric indicating an enumerated type
                         break;
                     case 0x0600:
-                        if (ItemList.ContainsKey(BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)))
+                        if (ItemList.ContainsKey(BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)))
                         {
-                            child.Data = ItemList[BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)];
+                            child.Data = ItemList[BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)];
                         }
                         else
                         {
-                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
+                            child.Data = BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8");
                         }
                         break;
                     case 0x0700:
-                        if (ItemList.ContainsKey(BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)))
+                        if (ItemList.ContainsKey(BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)))
                         {
-                            child.Data = ItemList[BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0)];
+                            child.Data = ItemList[BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0)];
                         }
                         else
                         {
-                            child.Data = BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
+                            child.Data = BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8");
                         }
                         break;
                     default:
-                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.ObjectData.TemplateByteData[i], 0).ToString("X8");
+                        child.Data = datatype.ToString("X4") + " - " + BitConverter.ToUInt32(item.data.RowDataByteArray[i], 0).ToString("X8");
                         break;
                 }
                 node.TreeGDBObjectData.Add(child);

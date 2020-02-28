@@ -75,9 +75,11 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Source\DataTypes.cs" />
     <Compile Include="Source\GDBFileHandling.cs" />
     <Compile Include="Source\FileIO.cs" />
     <Compile Include="Source\GDBTreeHandling.cs" />
+    <Compile Include="Source\GDB_Util.cs" />
     <Compile Include="Source\Structures.cs" />
     <Compile Include="Source\TreeItems.cs" />
     <Page Include="MainWindow.xaml">
