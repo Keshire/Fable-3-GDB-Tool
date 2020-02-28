@@ -11,10 +11,10 @@ namespace GDBEditor
     public class TreeGDBFile
     {
         public string Name { get; set; }
-        public List<TreeGDBRegion> TreeGDBRegion { get; set; }
+        public List<TreeGDBPartition> TreeGDBRegion { get; set; }
     }
 
-    public class TreeGDBRegion
+    public class TreeGDBPartition
     {
         public string Name { get; set; }
         public List<TreeGDBObject> TreeGDBObject { get; set; }
@@ -23,7 +23,7 @@ namespace GDBEditor
     public class TreeGDBObject
     {
         public string Name { get; set; }
-        public GDBTreeHandling.GDBObjectTreeItem Data { get; set; }
+        public GDBTreeHandling.GDBTreeItem Data { get; set; }
         public List<TreeGDBObjectData> TreeGDBObjectData { get; set; }
     }
 

@@ -7,11 +7,11 @@ namespace GDBEditor
 {
     public class GDBTreeHandling
     {
-        static public Dictionary<uint, GDBObjectTreeItem> ItemList = new Dictionary<uint, GDBObjectTreeItem>();
+        static public Dictionary<uint, GDBTreeItem> ItemList = new Dictionary<uint, GDBTreeItem>();
         static public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>();
-        public List<TreeGDBRegion> Folders = new List<TreeGDBRegion>();
+        public List<TreeGDBPartition> partitions = new List<TreeGDBPartition>();
 
-        public class GDBObjectTreeItem
+        public class GDBTreeItem
         {
             public UInt16 partition;
             public uint   hash;
@@ -26,10 +26,10 @@ namespace GDBEditor
         {
 
             FNVHashes = MainWindow.FNVHashes;
-            var FolderList = new SortedDictionary<UInt16, List<GDBObjectTreeItem>>();
+            var partitionList = new SortedDictionary<UInt16, List<GDBTreeItem>>();
             for (int i = 0; i < gdbObject.header.RecordCount; i++)
             {
-                GDBObjectTreeItem item = new GDBObjectTreeItem
+                GDBTreeItem item = new GDBTreeItem
                 {
                     partition = gdbObject.Records[i].partition,
                     hash = gdbObject.Records[i].hash,
@@ -47,56 +47,60 @@ namespace GDBEditor
                 {
                     if (FNVHashes.ContainsKey(gdbObject.RecordToFNV[item.hash]))
                     {
+                        //convert to string
                         item.label = FNVHashes[gdbObject.RecordToFNV[item.hash]];
                     }
                     else if (FNVHashes.ContainsKey(item.hash))
                     {
-                        //Comes from outside the gdb
-                        item.label = FNVHashes[item.hash];
+                        //Comes from outside the gdb, just use fnv as name
+                        item.label = "FNV: "+FNVHashes[item.hash];
                     }
                     else
                     {
-                        item.label = item.hash.ToString("X8");
+                        //No string, No FNV, so just use hash...
+                        item.label = "HASH: "+item.hash.ToString("X8");
                     }
                 }
                 else if(FNVHashes.ContainsKey(item.hash)) 
                 {
-                    //Comes from outside the gdb
-                    item.label = FNVHashes[item.hash];
+                    //We found it elsewhere!
+                    item.label = "External: "+FNVHashes[item.hash];
                 }
                 else
                 {
-                    item.label = item.hash.ToString("X8");
+                    //No string, No FNV, so just use hash...
+                    item.label = "HASH: " + item.hash.ToString("X8");
                 }
 
-
-                //Keep a list of items by hash
+                //Keep a list of items by hash in order to populate externals
                 ItemList[item.hash] = item;
                 
-                //Keep a sorted list of items by unknown
-                if (FolderList.ContainsKey(item.partition))
+                //Keep a sorted list of items by partition, for research purposes. We don't know what this does normally.
+                if (partitionList.ContainsKey(item.partition))
                 {
-                    FolderList[item.partition].Add(item);
+                    //partition already exists, add this item to it.
+                    partitionList[item.partition].Add(item);
                 }
                 else
                 {
-                    FolderList.Add(item.partition, new List<GDBObjectTreeItem> { item });
+                    //partition doesn't exist, add it to the list
+                    partitionList.Add(item.partition, new List<GDBTreeItem> { item });
                 }
             }
 
-            Folders = new List<TreeGDBRegion>();
-            foreach (var folder in FolderList.Keys)
+            partitions = new List<TreeGDBPartition>();
+            foreach (var partition in partitionList.Keys)
             {
-                var root = new TreeGDBRegion() { Name = folder.ToString("X4"), TreeGDBObject = new List<TreeGDBObject>() };
-                foreach (var parent in FolderList[folder])
+                TreeGDBPartition root = new TreeGDBPartition() { Name = partition.ToString("X4"), TreeGDBObject = new List<TreeGDBObject>() };
+                foreach (GDBTreeItem parent in partitionList[partition])
                 {
-                    root.TreeGDBObject.Add(TreeGDBObject(parent));
+                    root.TreeGDBObject.Add(GDBObjectTree(parent));
                 }
-                Folders.Add(root);
+                partitions.Add(root);
             }
         }
 
-        static public TreeGDBObject TreeGDBObject(GDBObjectTreeItem item)
+        static public TreeGDBObject GDBObjectTree(GDBTreeItem item)
         {
             var node = new TreeGDBObject() { Name = item.label, Data = item, TreeGDBObjectData = new List<TreeGDBObjectData>() };
             for (int i = 0; i < item.data.RowDataByteArray.Count(); i++)

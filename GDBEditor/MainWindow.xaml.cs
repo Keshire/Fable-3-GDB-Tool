@@ -130,21 +130,21 @@ namespace GDBEditor
                 item.Items.Clear();
                 if (item.Tag is TreeGDBFile)
                 {
-                    foreach (var folder in gdbTrees[item.Header.ToString()].Folders)
+                    foreach (var folder in gdbTrees[item.Header.ToString()].partitions)
                         item.Items.Add(new TreeViewItem() { Header = folder.Name, Tag = folder, Items = { "Loading..." } });
                 }
-                if (item.Tag is TreeGDBRegion)
+                if (item.Tag is TreeGDBPartition)
                 {
-                    foreach (var gdbo in (item.Tag as TreeGDBRegion).TreeGDBObject)
+                    foreach (var gdbo in (item.Tag as TreeGDBPartition).TreeGDBObject)
                         item.Items.Add(new TreeViewItem() { Header = gdbo.Name, Tag = gdbo, Items = { "Loading..." } });
                 }
                 if (item.Tag is TreeGDBObject)
                 {
                     foreach (TreeGDBObjectData gdbv in (item.Tag as TreeGDBObject).TreeGDBObjectData)
                     {
-                        if (gdbv.Data is GDBTreeHandling.GDBObjectTreeItem)
+                        if (gdbv.Data is GDBTreeHandling.GDBTreeItem)
                         {
-                            var gdbnode = GDBTreeHandling.TreeGDBObject((GDBTreeHandling.GDBObjectTreeItem)gdbv.Data);
+                            var gdbnode = GDBTreeHandling.GDBObjectTree((GDBTreeHandling.GDBTreeItem)gdbv.Data);
                             item.Items.Add(new TreeViewItem() { Header = "parent ["+gdbnode.Name+"]", Tag = gdbnode, Items = { "Loading..." } });
                         }
                         else
@@ -174,7 +174,7 @@ namespace GDBEditor
                 foreach (KeyValuePair<string, GDBTreeHandling> file in gdbTrees)
                 {
                     var root = new TreeViewItem { Header = file.Key, Tag = new TreeGDBFile() };
-                    foreach (var gdbtree in file.Value.Folders)
+                    foreach (var gdbtree in file.Value.partitions)
                     {
                         var folder = new TreeViewItem { Header = gdbtree.Name, Tag = gdbtree };
                         foreach (var gdbobject in gdbtree.TreeGDBObject)
