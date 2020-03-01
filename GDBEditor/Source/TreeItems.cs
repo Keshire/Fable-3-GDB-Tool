@@ -31,5 +31,7 @@ namespace GDBEditor
     {
         public string Name { get; set; }
         public object Data { get; set; }
+        public UInt16 Type { get; set; }
+        public int Index { get; set; }
     }
 }

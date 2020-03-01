@@ -9,14 +9,19 @@ using System.IO;
 namespace GDBEditor
 {
     [Serializable]
-    public class GDBFileHandling
+    public class GDBFileImport
     {
         public GDBHeader header { get; set; }
         public List<Record> Records = new List<Record>();
         public Dictionary<UInt32, UInt32> RecordToFNV = new Dictionary<UInt32, UInt32>(); //key=hash, values=fnv
         public Dictionary<UInt32, string> FNVToString = new Dictionary<UInt32, string>(); //key=fnv, value=string
+        
         public HashBlock StringData { get; set; }
-        public GDBFileHandling(BinaryReader buffer)
+
+        public SortedDictionary<UInt32, RowType> RecordTypeDict = new SortedDictionary<uint, RowType>();//key=offset, values=rowtype
+        public Dictionary<UInt32, Record> RecordDict = new Dictionary<uint, Record>(); //For lookup when editing treeview
+
+        public GDBFileImport(BinaryReader buffer)
         {
             //Get header info 0x18
             header = new GDBHeader
@@ -68,12 +73,14 @@ namespace GDBEditor
 
                 //Jump back to the data now that we know what it is
                 buffer.BaseStream.Position = RowDataPos;
-                d.RowDataByteArray = new List<Byte[]>();
+                d.RowDataBytes = new List<Byte[]>();
                 for (int j = 0; j < totalColumns; j++)
                 {
-                    d.RowDataByteArray.Add(buffer.ReadBytes(4));
+                    d.RowDataBytes.Add(buffer.ReadBytes(4));
                 }
-
+                
+                //Keeping types just in case...
+                RecordTypeDict[d.RowTypeOffset] = t;
                 Records.Add(new Record { rowtype = t, rowdata = d });
             }
 
@@ -100,6 +107,9 @@ namespace GDBEditor
             }
 
             //END OF RECORD DATA
+            //Build a hashed list for crossing with treeview
+            foreach (Record r in Records) { RecordDict[r.hash] = r; }
+
 
             //Cross references record hash with label hash? Sometimes object doesn't exist, and sometimes string doesn't exist. 
             //Might've got pulled in from another.gdb or .save??

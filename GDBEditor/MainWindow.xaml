@@ -17,7 +17,6 @@
             </Menu.ItemsPanel>
             <MenuItem Header="_File">
                 <MenuItem Header="_Open" Click="Open_Click" />
-                <MenuItem Header="_Save" Click="Save_Click"/>
             </MenuItem>
             <MenuItem Grid.Column="2" HorizontalAlignment="Right" Margin="10">
                 <MenuItem.Header>
@@ -28,6 +27,12 @@
                 </MenuItem.Header>
             </MenuItem>
         </Menu>
-        <TreeView Name="trv" TreeViewItem.Expanded="TreeViewItem_Expanded" MouseDoubleClick="TreeViewItem_DoubleClick" Margin="2" />
+        <TreeView Name="trv" TreeViewItem.Expanded="TreeViewItem_Expanded" MouseRightButtonUp="TreeViewItem_RightClick" MouseDoubleClick="TreeViewItem_DoubleClick" Margin="2">
+            <TreeView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Save" Click="Button_Save"/>
+                </ContextMenu>
+            </TreeView.ContextMenu>
+        </TreeView>
     </DockPanel>
 </Window>

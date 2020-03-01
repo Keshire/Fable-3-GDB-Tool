@@ -27,17 +27,24 @@ namespace GDBEditor
     {
 
         public string[] args = Environment.GetCommandLineArgs();
+
+        public ContextMenu mnu;
+
         public string file;
         public string filename;
-        public Dictionary<string, GDBFileHandling> gdbObjects = new Dictionary<string, GDBFileHandling>();
+        public Dictionary<string, GDBFileImport> gdbFiles = new Dictionary<string, GDBFileImport>();
         public Dictionary<string, GDBTreeHandling> gdbTrees = new Dictionary<string, GDBTreeHandling>();
 
+        //Global list so we can just keep piling into it.
         static public Dictionary<uint, string> FNVHashes = new Dictionary<uint, string>();
-        //public FileIO efile = new FileIO();
 
         public MainWindow()
         {
             InitializeComponent();
+
+            //Hide it till we need it.
+            mnu = trv.ContextMenu;
+            trv.ContextMenu = null;
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
@@ -52,6 +59,7 @@ namespace GDBEditor
                 filename = System.IO.Path.GetFileName(file);
                 try
                 {
+                    //load the names and hashes from save file into global list, but otherwise do nothing.
                     if (System.IO.Path.GetExtension(file) == ".save")
                     {
                         XElement xmlHashList = XElement.Load(file);
@@ -72,19 +80,16 @@ namespace GDBEditor
                         {
                             trv.Items.Clear();
                             //Load the gdb into memory
-                            gdbObjects[filename] = new GDBFileHandling(gdbBuffer);
+                            gdbFiles[filename] = new GDBFileImport(gdbBuffer);
 
                             //Add the strings to a global list
-                            foreach (KeyValuePair<uint, string> fnv in gdbObjects[filename].FNVToString)
+                            foreach (KeyValuePair<uint, string> fnv in gdbFiles[filename].FNVToString)
                             {
                                 if (!FNVHashes.ContainsKey(fnv.Key))
                                 {
                                     FNVHashes[fnv.Key] = fnv.Value;
                                 }
                             }
-
-                            //Build a tree for the view
-                            gdbTrees[filename] = new GDBTreeHandling(gdbObjects[filename]);
                         }
                     }
                 }
@@ -92,18 +97,22 @@ namespace GDBEditor
                 {
                 }
 
-                //rebuild the treeview tree to account for new fnv's each time.
-                foreach (var tree in gdbObjects.Keys)
-                {
-                    gdbTrees[tree] = new GDBTreeHandling(gdbObjects[tree]);
-                    trv.Items.Add(new TreeViewItem() { Header = tree, Tag = new TreeGDBFile(), Items = { "Loading..." } });
-                }
+                //refresh the treeview tree to account for new fnv's each time.
+                refresh_view();
             }
         }
 
-        private void Save_Click(object sender, RoutedEventArgs e)
+        public void TreeViewItem_RightClick(object sender, RoutedEventArgs e)
         {
-            //Eventually allow editing and saving.
+            if (sender is TreeViewItem)
+                if (!((TreeViewItem)sender).IsSelected)
+                    return;
+            TreeViewItem item = trv.SelectedItem as TreeViewItem;
+            trv.ContextMenu = null;
+            if (item != null && item.Tag is TreeGDBFile)
+            {
+                trv.ContextMenu = mnu;
+            }
         }
 
         public void TreeViewItem_DoubleClick(object sender, RoutedEventArgs e)
@@ -115,11 +124,25 @@ namespace GDBEditor
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
             if (item != null && item.Tag is TreeGDBObjectData)
             {
-                TreeViewItem parent = item.Parent as TreeViewItem;
-                TreeGDBObject parentgdb = parent.Tag as TreeGDBObject;
+                //We want to edit the base gdbfile here.
+                TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+
+
+                //TextBox nd = new TextBox();
+                //var od = child.Data;
+                //child.Data = "0.5";
+                //child.Data = GDB_Util.ConvertToData(child.Type, child.Data);
+
+                //Need to get the index of the data node so we can update it directly.
+                TreeViewItem root = trv.Items[0] as TreeViewItem;
+                TreeViewItem p = item.Parent as TreeViewItem;
+                TreeGDBObject parent = p.Tag as TreeGDBObject;
+
+                //Dictionary Shenanigans
+                //gdbFiles[(string)root.Header].RecordDict[parent.Data.hash].rowdata.RowDataBytes[child.Index] = (Byte[])child.Data;
+                //refresh_view();
             }
         }
-
 
         //For Lazy Loading
         public void TreeViewItem_Expanded(object sender, RoutedEventArgs e)
@@ -144,7 +167,7 @@ namespace GDBEditor
                     {
                         if (gdbv.Data is GDBTreeHandling.GDBTreeItem)
                         {
-                            var gdbnode = GDBTreeHandling.GDBObjectTree((GDBTreeHandling.GDBTreeItem)gdbv.Data);
+                            var gdbnode = GDBTreeHandling.GetTreeNode((GDBTreeHandling.GDBTreeItem)gdbv.Data);
                             item.Items.Add(new TreeViewItem() { Header = "parent ["+gdbnode.Name+"]", Tag = gdbnode, Items = { "Loading..." } });
                         }
                         else
@@ -153,6 +176,27 @@ namespace GDBEditor
                         }
                     }   
                 }
+            }
+        }
+
+        private void Button_Save(object sender, RoutedEventArgs e)
+        {
+            //quick sanity checking
+            if (sender is TreeViewItem)
+                if (!((TreeViewItem)sender).IsSelected)
+                    return;
+            TreeViewItem itemToSave = trv.SelectedItem as TreeViewItem;
+
+            Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog { Filter = "GDB Files|*.gdb|All Files|*.*", FilterIndex = 1 };
+            FileIO fileUtil = new FileIO();
+
+            // Call the ShowDialog method to show the dialog box.
+            var userClickedOK = sfd.ShowDialog();
+            if (userClickedOK == true)
+            {
+                string filepath = sfd.FileName;
+                GDBFileImport fileStream = gdbFiles[(string)itemToSave.Header];
+                fileUtil.SaveFile(filepath, fileStream);
             }
         }
 
@@ -200,6 +244,16 @@ namespace GDBEditor
                     }
                     trv.Items.Add(root);
                 }
+            }
+        }
+
+        private void refresh_view()
+        {
+            trv.Items.Clear();
+            foreach (var file in gdbFiles.Keys)
+            {
+                gdbTrees[file] = new GDBTreeHandling(gdbFiles[file]);
+                trv.Items.Add(new TreeViewItem() { Header = file, Tag = new TreeGDBFile(), Items = { "Loading..." } });
             }
         }
     }

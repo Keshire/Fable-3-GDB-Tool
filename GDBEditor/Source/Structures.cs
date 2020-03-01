@@ -10,7 +10,7 @@ namespace GDBEditor
     public class RowData
     {
         public uint             RowTypeOffset { get; set; }
-        public List<byte[]>     RowDataByteArray    { get; set; }
+        public List<byte[]>     RowDataBytes    { get; set; }
     }
 
     public class Record
