@@ -124,23 +124,23 @@ namespace GDBEditor
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
             if (item != null && item.Tag is TreeGDBObjectData)
             {
-                //We want to edit the base gdbfile here.
-                TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+                var textbox = new TextBox();
+                item.Header = textbox;
+                item.LostFocus += (o,a) => 
+                {
+                    TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+                    child.Data = textbox.Text;
+                    var converted = GDB_Util.ConvertToData(child.Type, child.Data);
 
+                    //Need to get the index of the data node so we can update it directly.
+                    TreeViewItem root = trv.Items[0] as TreeViewItem;
+                    TreeViewItem p = item.Parent as TreeViewItem;
+                    TreeGDBObject parent = p.Tag as TreeGDBObject;
 
-                //TextBox nd = new TextBox();
-                //var od = child.Data;
-                //child.Data = "0.5";
-                //child.Data = GDB_Util.ConvertToData(child.Type, child.Data);
-
-                //Need to get the index of the data node so we can update it directly.
-                TreeViewItem root = trv.Items[0] as TreeViewItem;
-                TreeViewItem p = item.Parent as TreeViewItem;
-                TreeGDBObject parent = p.Tag as TreeGDBObject;
-
-                //Dictionary Shenanigans
-                //gdbFiles[(string)root.Header].RecordDict[parent.Data.hash].rowdata.RowDataBytes[child.Index] = (Byte[])child.Data;
-                //refresh_view();
+                    //Dictionary Shenanigans
+                    gdbFiles[(string)root.Header].RecordDict[parent.Data.hash].rowdata.RowDataBytes[child.Index] = converted;
+                    refresh_view();
+                };
             }
         }
 

@@ -51,7 +51,7 @@ namespace GDBEditor
                     foreach (var data in type.Value.Data_Type) { b.Write(data.Key); b.Write(data.Value); } //This is sorted differently than the base file, will this break?
                 }
 
-                //Something isn't getting written correctly, because the objects are picking up strings tha the original has.
+                //Something isn't getting written correctly, because the objects aren't picking up strings that the original has.
                 //then hashes
                 foreach (var record in file.RecordDict) { b.Write(record.Value.hash); }
                 //then partitions
@@ -60,7 +60,7 @@ namespace GDBEditor
                 if (file.header.RecordCount % 2 > 0) { b.Write(new Byte[] { 0x00, 0x00 }); }
 
                 //UniqueRecordCount
-                foreach (var recTofnv in file.RecordToFNV) { b.Write(recTofnv.Key); b.Write(recTofnv.Value); }
+                foreach (var recTofnv in file.RecordToFNV) { b.Write(recTofnv.Value); b.Write(recTofnv.Key); }
 
                 //not sure how this is controlled
                 b.Write(file.StringData.Header);

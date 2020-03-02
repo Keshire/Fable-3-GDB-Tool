@@ -117,8 +117,8 @@ namespace GDBEditor
             for (int i = 0; i < header.UniqueRecordCount; i++)
             {
                 uint fnv = buffer.ReadUInt32();
-                uint row = buffer.ReadUInt32();
-                RecordToFNV[row] = fnv;
+                uint hash = buffer.ReadUInt32();
+                RecordToFNV[hash] = fnv;
             }
             
             //A block of fnv strings consisting of the fnv and string (null terminated).

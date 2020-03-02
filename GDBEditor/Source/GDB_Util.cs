@@ -60,38 +60,46 @@ namespace GDBEditor
 
         public static byte[] ConvertToData(UInt16 datatype, object data)
         {
-            Byte[] d = null;
+            Byte[] d = new Byte[4];
             switch (datatype)
             {
                 case 0x0000:
                     //d = Convert.ToBoolean(BitConverter.ToUInt32(data, 0));  //bool
+                    d = BitConverter.GetBytes(bool.Parse((string)data));
                     break;
                 case 0x0100:
                     //d = BitConverter.ToUInt32(data, 0); //dword
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
                 case 0x0200:
                     //d = BitConverter.ToUInt32(data, 0); //dword lots of GroupIndex
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
                 case 0x0300:
                     //d = BitConverter.ToSingle(data, 0); //Float
+                    d = BitConverter.GetBytes(float.Parse((string)data));
                     break;
                 case 0x0400:
                     //d = BitConverter.ToUInt32(data, 0);
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
                 case 0x0500:
                     //d = BitConverter.ToUInt32(data, 0); //enumerated type
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
                 case 0x0600:
                     //d = BitConverter.ToUInt32(data, 0);
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
                 case 0x0700:
                     //d = BitConverter.ToUInt32(data, 0);
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
                 default:
                     //d = BitConverter.ToUInt32(data, 0);
+                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
                     break;
             }
-            d = new Byte[]{ 0x00, 0x00, 0x00, 0x00 };
             return d;
         }
     }
