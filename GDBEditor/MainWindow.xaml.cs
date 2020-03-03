@@ -242,7 +242,7 @@ namespace GDBEditor
                                 }
                             }
                         }
-                        root.Items.Add(folder);
+                        if (folder.Items.Count > 0) { root.Items.Add(folder); }
                     }
                     trv.Items.Add(root);
                 }
