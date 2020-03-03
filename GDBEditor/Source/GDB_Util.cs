@@ -65,7 +65,7 @@ namespace GDBEditor
             {
                 case 0x0000:
                     //d = Convert.ToBoolean(BitConverter.ToUInt32(data, 0));  //bool
-                    d = BitConverter.GetBytes(bool.Parse((string)data));
+                    d = BitConverter.GetBytes(bool.Parse((string)data)).Concat(new byte[] { 0x00}).Concat(new byte[] { 0x00 }).Concat(new byte[] { 0x00 }).ToArray();
                     break;
                 case 0x0100:
                     //d = BitConverter.ToUInt32(data, 0); //dword

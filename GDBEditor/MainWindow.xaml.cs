@@ -124,11 +124,13 @@ namespace GDBEditor
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
             if (item != null && item.Tag is TreeGDBObjectData)
             {
+                TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
                 var textbox = new TextBox();
+                textbox.Text = (string)child.Data;
                 item.Header = textbox;
-                item.LostFocus += (o,a) => 
+                textbox.LostFocus += (o,a) => 
                 {
-                    TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+                    
                     child.Data = textbox.Text;
                     var converted = GDB_Util.ConvertToData(child.Type, child.Data);
 
