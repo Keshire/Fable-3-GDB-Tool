@@ -234,7 +234,9 @@ namespace GDBEditor
                                 Boolean add_folder = false;
                                 foreach (TreeGDBObjectData gbdobject_parameter in gdbobject.TreeGDBObjectData)
                                 {
-                                    if (Regex.IsMatch(gdbobject.Name, textbox.Text) && !add_folder)
+                                    if ((Regex.IsMatch(gdbobject.Name, textbox.Text) 
+                                        || Regex.IsMatch(gdbobject.Data.hash.ToString(), textbox.Text) 
+                                        || Regex.IsMatch(gdbobject.Data.name,textbox.Text))  && !add_folder)
                                     {
                                         add_folder = true;
                                         folder.Items.Add(new TreeViewItem() { Header = gdbobject.Name, Tag = gdbobject, Items = { "Loading..." } });
