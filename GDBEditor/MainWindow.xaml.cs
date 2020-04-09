@@ -28,7 +28,10 @@ namespace GDBEditor
 
         public string[] args = Environment.GetCommandLineArgs();
 
-        public ContextMenu mnu;
+        ContextMenu save;
+        ContextMenu edit;
+        MenuItem menu_save;
+        MenuItem menu_edit;
 
         public string file;
         public string filename;
@@ -41,10 +44,23 @@ namespace GDBEditor
         public MainWindow()
         {
             InitializeComponent();
-
-            //Hide it till we need it.
-            mnu = trv.ContextMenu;
             trv.ContextMenu = null;
+
+            menu_save = new MenuItem();
+            menu_save.Header = "Save";
+            menu_save.Click += Button_Save;
+
+            menu_edit = new MenuItem();
+            menu_edit.Header = "Edit";
+            menu_edit.Click += Button_Edit;
+
+            save = new ContextMenu();
+            save.Items.Add(menu_save);
+
+            edit = new ContextMenu();
+            edit.Items.Add(menu_edit);
+
+            
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
@@ -67,10 +83,8 @@ namespace GDBEditor
                         {
                             if (node.Name == "Entity")
                             {
-                                if (!FNVHashes.ContainsKey(Convert.ToUInt32(node.Value, 16)))
-                                {
-                                    FNVHashes[Convert.ToUInt32(node.Value, 16)] = node.FirstAttribute.Value;
-                                }
+                                var k = Convert.ToUInt32(node.Value, 16);
+                                FNVHashes[k] = node.FirstAttribute.Value;
                             }
                         }
                     }
@@ -108,41 +122,13 @@ namespace GDBEditor
                 if (!((TreeViewItem)sender).IsSelected)
                     return;
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
-            trv.ContextMenu = null;
             if (item != null && item.Tag is TreeGDBFile)
             {
-                trv.ContextMenu = mnu;
+                trv.ContextMenu = save;
             }
-        }
-
-        public void TreeViewItem_DoubleClick(object sender, RoutedEventArgs e)
-        {
-            //For Editing
-            if (sender is TreeViewItem)
-                if (!((TreeViewItem)sender).IsSelected)
-                    return;
-            TreeViewItem item = trv.SelectedItem as TreeViewItem;
             if (item != null && item.Tag is TreeGDBObjectData)
             {
-                TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
-                var textbox = new TextBox();
-                textbox.Text = (string)child.Data;
-                item.Header = textbox;
-                textbox.LostFocus += (o,a) => 
-                {
-                    
-                    child.Data = textbox.Text;
-                    var converted = GDB_Util.ConvertToData(child.Type, child.Data);
-
-                    //Need to get the index of the data node so we can update it directly.
-                    TreeViewItem root = trv.Items[0] as TreeViewItem;
-                    TreeViewItem p = item.Parent as TreeViewItem;
-                    TreeGDBObject parent = p.Tag as TreeGDBObject;
-
-                    //Dictionary Shenanigans
-                    gdbFiles[(string)root.Header].RecordDict[parent.Data.hash].rowdata.RowDataBytes[child.Index] = converted;
-                    refresh_view();
-                };
+                trv.ContextMenu = edit;
             }
         }
 
@@ -187,19 +173,51 @@ namespace GDBEditor
             if (sender is TreeViewItem)
                 if (!((TreeViewItem)sender).IsSelected)
                     return;
-            TreeViewItem itemToSave = trv.SelectedItem as TreeViewItem;
+            TreeViewItem item = trv.SelectedItem as TreeViewItem;
 
             Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog { Filter = "GDB Files|*.gdb|All Files|*.*", FilterIndex = 1 };
-            FileIO fileUtil = new FileIO();
+            GDBFileExport fileUtil = new GDBFileExport();
 
             // Call the ShowDialog method to show the dialog box.
             var userClickedOK = sfd.ShowDialog();
             if (userClickedOK == true)
             {
                 string filepath = sfd.FileName;
-                GDBFileImport fileStream = gdbFiles[(string)itemToSave.Header];
+                GDBFileImport fileStream = gdbFiles[(string)item.Header];
                 fileUtil.SaveFile(filepath, fileStream);
             }
+        }
+
+        private void Button_Edit(object sender, RoutedEventArgs e)
+        {
+            //quick sanity checking
+            if (sender is TreeViewItem)
+                if (!((TreeViewItem)sender).IsSelected)
+                    return;
+            TreeViewItem item = trv.SelectedItem as TreeViewItem;
+
+            TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+            var textbox = new TextBox();
+            textbox.Text = (string)child.Data;
+
+            item.Header = textbox;
+            textbox.KeyDown += (o, a) =>
+            {
+                if (a.Key == Key.Enter)
+                {
+                    child.Data = textbox.Text;
+                    var converted = GDB_Util.ConvertToData(child.Type, child.Data);
+
+                    //Need to get the index of the data node so we can update it directly.
+                    TreeViewItem root = trv.Items[0] as TreeViewItem;
+                    TreeViewItem p = item.Parent as TreeViewItem;
+                    TreeGDBObject parent = p.Tag as TreeGDBObject;
+
+                    //Dictionary Shenanigans
+                    gdbFiles[(string)root.Header].RecordDict[parent.Data.hash].rowdata.RowDataBytes[child.Index] = converted;
+                    refresh_view();
+                }
+            };
         }
 
         //String Search
@@ -216,36 +234,63 @@ namespace GDBEditor
             }
             else
             {
+                List<TreeGDBObject> children = new List<TreeGDBObject>();
+                List<TreeGDBObject> parent = new List<TreeGDBObject>();
+
                 //Rebuild Tree with just searched item
                 foreach (KeyValuePair<string, GDBTreeHandling> file in gdbTrees)
                 {
                     var root = new TreeViewItem { Header = file.Key, Tag = new TreeGDBFile() };
+
+                    //Get the found object
                     foreach (var gdbtree in file.Value.partitions)
                     {
-                        var folder = new TreeViewItem { Header = gdbtree.Name, Tag = gdbtree };
                         foreach (var gdbobject in gdbtree.TreeGDBObject)
                         {
-                            if (Regex.IsMatch(gdbobject.Name,textbox.Text))
+                            if ((Regex.IsMatch(gdbobject.Name, textbox.Text) || 
+                                 Regex.IsMatch(gdbobject.Data.fnv.ToString(), textbox.Text) || 
+                                 Regex.IsMatch(gdbobject.Data.hash.ToString(), textbox.Text) || 
+                                 Regex.IsMatch(gdbobject.Data.name,textbox.Text) || 
+                                 gdbobject.Data.column_string.Contains(textbox.Text)))
                             {
-                                folder.Items.Add(new TreeViewItem() { Header = gdbobject.Name, Tag = gdbobject, Items = { "Loading..." } });
+                                children.Add(gdbobject);
                             }
-                            else
+                        }
+                    }
+
+                    //Let's get it's parent
+                    foreach (var gdbtree in file.Value.partitions)
+                    {
+                        foreach (var gdbobject in gdbtree.TreeGDBObject)
+                        {
+                            foreach (TreeGDBObjectData gbdobject_parameter in gdbobject.TreeGDBObjectData)
                             {
-                                Boolean add_folder = false;
-                                foreach (TreeGDBObjectData gbdobject_parameter in gdbobject.TreeGDBObjectData)
+                                foreach(var child in children)
                                 {
-                                    if ((Regex.IsMatch(gdbobject.Name, textbox.Text) 
-                                        || Regex.IsMatch(gdbobject.Data.hash.ToString(), textbox.Text) 
-                                        || Regex.IsMatch(gdbobject.Data.name,textbox.Text))  && !add_folder)
+                                    if(gbdobject_parameter.Data is GDBTreeHandling.GDBTreeItem)
                                     {
-                                        add_folder = true;
-                                        folder.Items.Add(new TreeViewItem() { Header = gdbobject.Name, Tag = gdbobject, Items = { "Loading..." } });
+                                        var temp = (GDBTreeHandling.GDBTreeItem)gbdobject_parameter.Data;
+                                        if (temp.hash == child.Data.hash)
+                                        {
+                                            if (!parent.Contains(gdbobject)) { parent.Add(gdbobject); }
+                                        }
                                     }
                                 }
                             }
                         }
-                        if (folder.Items.Count > 0) { root.Items.Add(folder); }
                     }
+
+                    //No parent, so just give me the root
+                    if (parent.Count == 0)
+                    {
+                        foreach (var c in children)
+                            root.Items.Add(new TreeViewItem() { Header = c.Name, Tag = c, Items = { "Loading..." } });
+                    }
+                    else
+                    {
+                        foreach (var p in parent) { root.Items.Add(new TreeViewItem() { Header = p.Name, Tag = p, Items = { "Loading..." } }); }
+                    }
+
                     trv.Items.Add(root);
                 }
             }
@@ -259,6 +304,14 @@ namespace GDBEditor
                 gdbTrees[file] = new GDBTreeHandling(gdbFiles[file]);
                 trv.Items.Add(new TreeViewItem() { Header = file, Tag = new TreeGDBFile(), Items = { "Loading..." } });
             }
+        }
+
+        public uint SwapBytes(uint x)
+        {
+            // swap adjacent 16-bit blocks
+            x = (x >> 16) | (x << 16);
+            // swap adjacent 8-bit blocks
+            return ((x & 0xFF00FF00) >> 8) | ((x & 0x00FF00FF) << 8);
         }
     }
 }

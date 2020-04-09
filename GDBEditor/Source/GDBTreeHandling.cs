@@ -14,7 +14,8 @@ namespace GDBEditor
         public class GDBTreeItem
         {
             public UInt16 partition;
-            public uint   hash;
+            public uint hash;
+            public uint fnv;
             public string name;
 
             public RowData data;
@@ -45,22 +46,30 @@ namespace GDBEditor
                     item.column_string.Add(FNVHashes[fnvhash]);
                 }
 
-                //Default name is just the hash
-                item.name = item.name = "HASH: " + item.hash.ToString("X8");
                 if (gdbObject.RecordToFNV.ContainsKey(item.hash))
                 {
-                    //Found FNV
-                    item.name = "FNV: " + gdbObject.RecordToFNV[item.hash].ToString("X8");
-                    if (FNVHashes.ContainsKey(gdbObject.RecordToFNV[item.hash]))
+                    item.fnv = gdbObject.RecordToFNV[item.hash];
+                    if (FNVHashes.ContainsKey(item.fnv))
                     {
                         //Found an actual string
-                        item.name = FNVHashes[gdbObject.RecordToFNV[item.hash]];
+                        item.name = FNVHashes[item.fnv];
+                    }
+                    else
+                    {
+                        item.name = "FNV: " + item.fnv.ToString("X8");
                     }
                 }
-                else if (FNVHashes.ContainsKey(item.hash)) 
+                else if (FNVHashes.ContainsKey(item.fnv))
                 {
-                    //We found it elsewhere!
-                    item.name = "EXT: "+FNVHashes[item.hash];
+                    item.name = "EXT: " + FNVHashes[item.fnv];
+                }
+                else if (FNVHashes.ContainsKey(item.hash))
+                {
+                    item.name = "EXT: " + FNVHashes[item.hash];
+                }
+                else
+                {
+                    item.name = item.name = "HASH: " + item.hash.ToString("X8");
                 }
 
                 //Keep a list of items by hash in order to populate from other gdbs or saves

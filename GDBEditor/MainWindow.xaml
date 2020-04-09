@@ -27,10 +27,11 @@
                 </MenuItem.Header>
             </MenuItem>
         </Menu>
-        <TreeView Name="trv" TreeViewItem.Expanded="TreeViewItem_Expanded" MouseRightButtonUp="TreeViewItem_RightClick" MouseDoubleClick="TreeViewItem_DoubleClick" Margin="2">
+        <TreeView Name="trv" TreeViewItem.Expanded="TreeViewItem_Expanded" MouseRightButtonUp="TreeViewItem_RightClick" Margin="2">
             <TreeView.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="Save" Click="Button_Save"/>
+                    <MenuItem Header="Edit" Click="Button_Edit"/>
                 </ContextMenu>
             </TreeView.ContextMenu>
         </TreeView>

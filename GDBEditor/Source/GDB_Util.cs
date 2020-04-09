@@ -69,11 +69,11 @@ namespace GDBEditor
                     break;
                 case 0x0100:
                     //d = BitConverter.ToUInt32(data, 0); //dword
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x" + (string)data, 16));
                     break;
                 case 0x0200:
                     //d = BitConverter.ToUInt32(data, 0); //dword lots of GroupIndex
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x" + (string)data, 16));
                     break;
                 case 0x0300:
                     //d = BitConverter.ToSingle(data, 0); //Float
@@ -81,23 +81,23 @@ namespace GDBEditor
                     break;
                 case 0x0400:
                     //d = BitConverter.ToUInt32(data, 0);
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x" + (string)data, 16));
                     break;
                 case 0x0500:
                     //d = BitConverter.ToUInt32(data, 0); //enumerated type
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x" + (string)data, 16));
                     break;
                 case 0x0600:
                     //d = BitConverter.ToUInt32(data, 0);
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x" + (string)data, 16));
                     break;
                 case 0x0700:
                     //d = BitConverter.ToUInt32(data, 0);
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x"+(string)data,16));
                     break;
                 default:
                     //d = BitConverter.ToUInt32(data, 0);
-                    d = BitConverter.GetBytes(UInt32.Parse((string)data));
+                    d = BitConverter.GetBytes(Convert.ToUInt32("0x" + (string)data, 16));
                     break;
             }
             return d;
