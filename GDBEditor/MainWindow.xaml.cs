@@ -30,8 +30,10 @@ namespace GDBEditor
 
         ContextMenu save;
         ContextMenu edit;
+        ContextMenu link;
         MenuItem menu_save;
         MenuItem menu_edit;
+        MenuItem menu_link;
 
         public string file;
         public string filename;
@@ -54,13 +56,20 @@ namespace GDBEditor
             menu_edit.Header = "Edit";
             menu_edit.Click += Button_Edit;
 
+            menu_link = new MenuItem();
+            menu_link.Header = "Re-Link";
+            menu_link.Click += Button_Link;
+
             save = new ContextMenu();
             save.Items.Add(menu_save);
 
             edit = new ContextMenu();
             edit.Items.Add(menu_edit);
 
-            
+            link = new ContextMenu();
+            link.Items.Add(menu_link);
+
+
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
@@ -119,14 +128,13 @@ namespace GDBEditor
         private void TreeViewItem_LeftClick(object sender, RoutedEventArgs e)
         {
             _statusbar.Items.Clear();
-            _statusbar.Items.Add("Status Bar || ");
+            _statusbar.Items.Add("Debug Data ");
             if (sender is TreeViewItem)
                 if (!((TreeViewItem)sender).IsSelected)
                     return;
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
             if (item != null)
             {
-                //_statusbar.Items.Add("Item: "+item.Header);
                 if (item.Tag is TreeGDBFile)
                 {
                     TreeGDBFile parent = item.Tag as TreeGDBFile;
@@ -139,43 +147,48 @@ namespace GDBEditor
                 }
                 if (item.Tag is TreeGDBObject)
                 {
-                    TreeViewItem root = trv.Items[0] as TreeViewItem;
-                    var file_status = gdbFiles[(string)root.Header];
+                    TreeGDBObject selected = item.Tag as TreeGDBObject;
+                    TreeViewItem p = item.Parent as TreeViewItem;
+                    TreeGDBObject parent = p.Tag as TreeGDBObject;
 
-                    TreeGDBObject parent = item.Tag as TreeGDBObject;
-                    _statusbar.Items.Add("  Item: FNVHASH[" + parent.Data.fnv.ToString("X8") + "], HASH[" + parent.Data.hash.ToString("X8") + "], Partition[" + parent.Data.partition.ToString("X4") + "]");
-                    //_statusbar.Items.Add("Item FNVHASH[" + parent.Data.fnv.ToString("X8") + "], Type FNVHASH["+parent.Data.type.FNV.ToString("X8")+"]");
+                    _statusbar.Items.Add("Selected-> Partition[" + selected.Data.partition.ToString("X4") + "] FNVHASH[" + selected.Data.fnv.ToString("X8") + "] HASH[" + selected.Data.hash.ToString("X8") + "]");
                 }
                 if (item.Tag is TreeGDBObjectData)
                 {
 
-                    TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+                    TreeGDBObjectData selected = item.Tag as TreeGDBObjectData;
                     TreeViewItem p = item.Parent as TreeViewItem;
                     TreeGDBObject parent = p.Tag as TreeGDBObject;
 
-                    _statusbar.Items.Add("Parent: FNVHASH[" + parent.Data.fnv.ToString("X8") + "], HASH[" + parent.Data.hash.ToString("X8") + "], Partition[" + parent.Data.partition.ToString("X4") + "]");
+                    _statusbar.Items.Add("Selected-> Type[" + selected.Type.ToString("X8") +"] Parent-> FNVHASH[" + parent.Data.fnv.ToString("X8") + "], HASH[" + parent.Data.hash.ToString("X8") + "], Partition[" + parent.Data.partition.ToString("X4") + "]");
                 }
             }
         }
 
-        public void TreeViewItem_RightClick(object sender, RoutedEventArgs e)
+        private void TreeViewItem_RightClick(object sender, RoutedEventArgs e)
         {
+            trv.ContextMenu = null;
             if (sender is TreeViewItem)
                 if (!((TreeViewItem)sender).IsSelected)
                     return;
             TreeViewItem item = trv.SelectedItem as TreeViewItem;
             if (item != null && item.Tag is TreeGDBFile)
             {
+                
                 trv.ContextMenu = save;
             }
             if (item != null && item.Tag is TreeGDBObjectData)
             {
                 trv.ContextMenu = edit;
             }
+            if (item != null && item.Tag is TreeGDBObject)
+            {
+                trv.ContextMenu = link;
+            }
         }
 
         //For Lazy Loading
-        public void TreeViewItem_Expanded(object sender, RoutedEventArgs e)
+        private void TreeViewItem_Expanded(object sender, RoutedEventArgs e)
         {
             TreeViewItem item = e.Source as TreeViewItem;
             if ((item.Items.Count == 1) && (item.Items[0] is string))
@@ -262,6 +275,49 @@ namespace GDBEditor
             };
         }
 
+        private void Button_Link(object sender, RoutedEventArgs e)
+        {
+            //quick sanity checking
+            if (sender is TreeViewItem)
+                if (!((TreeViewItem)sender).IsSelected)
+                    return;
+
+            TreeViewItem item = trv.SelectedItem as TreeViewItem;
+            TreeViewItem pnt_temp = item.Parent as TreeViewItem;
+
+            TreeGDBObject child = item.Tag as TreeGDBObject;
+            TreeGDBObject pnt = pnt_temp.Tag as TreeGDBObject;
+
+            foreach(var z in pnt.TreeGDBObjectData)
+            {
+                if (z.Data is GDBTreeHandling.GDBTreeItem)
+                {
+                    var u = (GDBTreeHandling.GDBTreeItem)z.Data;
+                    if (u.hash == child.Data.hash)
+                    {
+                        var textbox = new TextBox();
+                        textbox.Text = child.Data.hash.ToString("X8");
+
+                        item.Header = textbox;
+                        textbox.KeyDown += (o, a) =>
+                        {
+                            if (a.Key == Key.Enter)
+                            {
+                                //child.Data.hash = textbox.Text;
+                                var converted = GDB_Util.ConvertToData(0x0600,textbox.Text);
+
+                                //Need to get the index of the data node so we can update it directly.
+                                TreeViewItem root = trv.Items[0] as TreeViewItem;
+
+                                //Dictionary Shenanigans
+                                gdbFiles[(string)root.Header].RecordDict[pnt.Data.hash].rowdata.RowDataBytes[z.Index] = converted;
+                                refresh_view();
+                            }
+                        };
+                    }
+                }
+            }
+        }
         //String Search
         private void Button_Click(object sender, RoutedEventArgs e)
         {
@@ -289,13 +345,20 @@ namespace GDBEditor
                     {
                         foreach (var gdbobject in gdbtree.TreeGDBObject)
                         {
-                            if ((Regex.IsMatch(gdbobject.Name, textbox.Text) || 
+                            if (Regex.IsMatch(gdbobject.Name, textbox.Text) || 
                                  Regex.IsMatch(gdbobject.Data.fnv.ToString(), textbox.Text) || 
                                  Regex.IsMatch(gdbobject.Data.hash.ToString(), textbox.Text) || 
                                  Regex.IsMatch(gdbobject.Data.name,textbox.Text) || 
-                                 gdbobject.Data.column_string.Contains(textbox.Text)))
+                                 gdbobject.Data.column_string.Contains(textbox.Text))
                             {
                                 children.Add(gdbobject);
+                            }
+                            foreach (TreeGDBObjectData data in gdbobject.TreeGDBObjectData)
+                            {
+                                if (Regex.IsMatch(data.Name, textbox.Text) || Regex.IsMatch(data.Data.ToString(), textbox.Text))
+                                {
+                                    children.Add(gdbobject);
+                                }
                             }
                         }
                     }
@@ -348,6 +411,7 @@ namespace GDBEditor
             }
         }
 
+        //In case it's needed
         public uint SwapBytes(uint x)
         {
             // swap adjacent 16-bit blocks

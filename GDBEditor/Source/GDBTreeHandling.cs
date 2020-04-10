@@ -49,27 +49,18 @@ namespace GDBEditor
                 if (gdbObject.RecordToFNV.ContainsKey(item.hash))
                 {
                     item.fnv = gdbObject.RecordToFNV[item.hash];
-                    if (FNVHashes.ContainsKey(item.fnv))
-                    {
-                        //Found an actual string
-                        item.name = FNVHashes[item.fnv];
-                    }
-                    else
-                    {
-                        item.name = "FNV: " + item.fnv.ToString("X8");
-                    }
                 }
                 else if (FNVHashes.ContainsKey(item.fnv))
                 {
-                    item.name = "EXT: " + FNVHashes[item.fnv];
+                    //item.name = "EXT: " + FNVHashes[item.fnv];
                 }
                 else if (FNVHashes.ContainsKey(item.hash))
                 {
-                    item.name = "EXT: " + FNVHashes[item.hash];
+                    //item.name = "EXT: " + FNVHashes[item.hash];
                 }
                 else
                 {
-                    item.name = item.name = "HASH: " + item.hash.ToString("X8");
+                    //item.name = item.name = "HASH: " + item.hash.ToString("X8");
                 }
 
                 //Keep a list of items by hash in order to populate from other gdbs or saves
@@ -100,6 +91,21 @@ namespace GDBEditor
 
         static public TreeGDBObject GetTreeNode(GDBTreeItem item)
         {
+            if (item.name is null)
+            {
+                if (FNVHashes.ContainsKey(item.fnv))
+                {
+                    item.name = FNVHashes[item.fnv];
+                }
+                else if (item.fnv > 0)
+                {
+                    item.name = "FNV: "+item.fnv.ToString("X8");
+                }
+                else
+                {
+                    item.name = "HASH: " + item.hash.ToString("X8");
+                }
+            }
             var node = new TreeGDBObject() { Name = item.name, Data = item, TreeGDBObjectData = new List<TreeGDBObjectData>() };
 
             for (int i = 0; i < item.data.RowDataBytes.Count(); i++)
@@ -115,9 +121,19 @@ namespace GDBEditor
                 {
                     case TypeCode.UInt32:
                         UInt32 temp = (UInt32)data;
-                        if (FNVHashes.ContainsKey(temp)) { child.Data = FNVHashes[temp]; }
-                        else if (ItemList.ContainsKey(temp)) { child.Data = ItemList[temp]; }
-                        else { child.Data = temp.ToString("X8"); }
+                        if (FNVHashes.ContainsKey(temp))
+                        {
+                            child.Data = FNVHashes[temp];
+                        }
+                        else if (ItemList.ContainsKey(temp))
+                        {
+                            ItemList[temp].name = child.Name;
+                            child.Data = ItemList[temp];
+                        }
+                        else
+                        {
+                            child.Data = temp.ToString("X8");
+                        }
                         break;
                     default:
                         child.Data = data.ToString();
