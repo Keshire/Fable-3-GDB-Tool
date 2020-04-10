@@ -18,8 +18,9 @@ namespace GDBEditor
         
         public HashBlock StringData { get; set; }
 
-        public SortedDictionary<UInt32, RowType> RecordTypeDict = new SortedDictionary<uint, RowType>();//key=offset, values=rowtype
-        public Dictionary<UInt32, Record> RecordDict = new Dictionary<uint, Record>(); //For lookup when editing treeview
+        public SortedDictionary<UInt32, RowType> RecordTypeDict = new SortedDictionary<UInt32, RowType>();//key=offset, values=rowtype
+        public SortedDictionary<UInt32, RowType> RecordTypeToFNV = new SortedDictionary<UInt32, RowType>();
+        public Dictionary<UInt32, Record> RecordDict = new Dictionary<UInt32, Record>(); //For lookup when editing treeview
 
         public GDBFileImport(BinaryReader buffer)
         {
@@ -64,11 +65,13 @@ namespace GDBEditor
 
                 //Data Types
                 t.Data_Type = new Dictionary<UInt16, UInt16>();
+                t.Sort_Order = new List<ushort>();
                 for (int j = 0; j < totalColumns; j++)
                 {
-                    UInt16 DataID = buffer.ReadUInt16(); //This doesn't make any sense... Not in order
+                    UInt16 DataID = buffer.ReadUInt16(); //This is a separate sorting
                     UInt16 Datatype = buffer.ReadUInt16();
-                    t.Data_Type[(UInt16)j] = Datatype; //I assume DataID is supposed to be a key, but it might be a lookup into something else??
+                    t.Data_Type[(UInt16)j] = Datatype;
+                    t.Sort_Order.Add(DataID);
                 }
 
                 //Jump back to the data now that we know what it is
@@ -110,7 +113,6 @@ namespace GDBEditor
             //Build a hashed list for crossing with treeview
             foreach (Record r in Records) { RecordDict[r.hash] = r; }
 
-
             //Cross references record hash with label hash? Sometimes object doesn't exist, and sometimes string doesn't exist. 
             //Might've got pulled in from another.gdb or .save??
             RecordToFNV = new Dictionary<uint, uint>();
@@ -120,7 +122,15 @@ namespace GDBEditor
                 uint hash = buffer.ReadUInt32();
                 RecordToFNV[hash] = fnv;
             }
-            
+
+            foreach (Record r in Records)
+            {
+                if (RecordToFNV.ContainsKey(r.hash))
+                {
+                    r.rowtype.FNV = RecordToFNV[r.hash];
+                }
+            }
+
             //A block of fnv strings consisting of the fnv and string (null terminated).
             StringData = new HashBlock
             {
@@ -129,9 +139,13 @@ namespace GDBEditor
                 Count = buffer.ReadUInt32()
             };
 
+            StringData.FNVHash = new List<uint>();
+            StringData.String = new List<string>();
+
             for (int i = 0; i < StringData.Count; i++)
             {
                 uint fnv = buffer.ReadUInt32();
+                StringData.FNVHash.Add(fnv);
 
                 var stringbytes = new List<char>();
                 while (buffer.PeekChar() != 0x00)
@@ -139,6 +153,8 @@ namespace GDBEditor
                     stringbytes.Add(buffer.ReadChar());
                 }
                 buffer.ReadChar(); //null string termination not handled by ReadString()
+                StringData.String.Add(new string(stringbytes.ToArray()));
+
                 FNVToString[fnv] = new string(stringbytes.ToArray());
             }
             
@@ -147,6 +163,7 @@ namespace GDBEditor
             {
                 StringData.Offsets.Add(buffer.ReadUInt32());
             }
+
         }
     }
 }

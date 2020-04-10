@@ -26,12 +26,14 @@ namespace GDBEditor
     [Serializable]
     public class RowType
     {
+        public UInt32   FNV             { get; set; }
         public Byte     Components      { get; set; }   //Boolean I think
         public Byte     Columns         { get; set; }
         public UInt16   Count2          { get; set; }   //This should be little_endian!! WTF,seems to be used for animation states?
 
         public List<uint>                   Column_FNV { get; set; }  //fnv hash list, should be column labels
         public Dictionary<UInt16, UInt16>   Data_Type { get; set; }  //[(Count2 * 256) + Count1];    //This looks to be controlling datatypes used.
+        public List<UInt16>                   Sort_Order { get; set; } //This is a test for part of the Data_Type info that we don't understand.
         //0000 = boolean
         //0100 = dword
         //0200 = dword lots of GroupIndex
@@ -42,12 +44,26 @@ namespace GDBEditor
         //0700 = object hash
     }
 
+    public enum Data_Type
+    {
+        data_bool = 0x0000,
+        data_hex = 0x0100,
+        data_indice = 0x0200,
+        data_float = 0x0300,
+        data_string = 0x0400,
+        data_enum = 0x0500,
+        data_objref = 0x0600,
+        data_objlnk = 0x0700
+    }
+
     [Serializable]
     public class HashBlock
     {
         public uint Header          { get; set; }   // = 00 01 00 00 Always
         public uint TableSize   { get; set; }
         public uint Count       { get; set; }
+        public List<uint> FNVHash { get; set; }
+        public List<string> String { get; set; }
         public List<uint> Offsets   { get; set; }   //[HashCount];  //Offsets back into StringArray
     }
 

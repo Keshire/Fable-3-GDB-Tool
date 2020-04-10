@@ -116,6 +116,48 @@ namespace GDBEditor
             }
         }
 
+        private void TreeViewItem_LeftClick(object sender, RoutedEventArgs e)
+        {
+            _statusbar.Items.Clear();
+            _statusbar.Items.Add("Status Bar || ");
+            if (sender is TreeViewItem)
+                if (!((TreeViewItem)sender).IsSelected)
+                    return;
+            TreeViewItem item = trv.SelectedItem as TreeViewItem;
+            if (item != null)
+            {
+                //_statusbar.Items.Add("Item: "+item.Header);
+                if (item.Tag is TreeGDBFile)
+                {
+                    TreeGDBFile parent = item.Tag as TreeGDBFile;
+                    var file_status = gdbFiles[(string)item.Header];
+                    var records = file_status.header.RecordCount.ToString();
+                    var unique = file_status.header.UniqueRecordCount.ToString();
+                    var templates = file_status.RecordTypeDict.Count.ToString();
+
+                    _statusbar.Items.Add("Total Records: "+ records +", Unique: "+ unique +", Templates: "+ templates);
+                }
+                if (item.Tag is TreeGDBObject)
+                {
+                    TreeViewItem root = trv.Items[0] as TreeViewItem;
+                    var file_status = gdbFiles[(string)root.Header];
+
+                    TreeGDBObject parent = item.Tag as TreeGDBObject;
+                    _statusbar.Items.Add("  Item: FNVHASH[" + parent.Data.fnv.ToString("X8") + "], HASH[" + parent.Data.hash.ToString("X8") + "], Partition[" + parent.Data.partition.ToString("X4") + "]");
+                    //_statusbar.Items.Add("Item FNVHASH[" + parent.Data.fnv.ToString("X8") + "], Type FNVHASH["+parent.Data.type.FNV.ToString("X8")+"]");
+                }
+                if (item.Tag is TreeGDBObjectData)
+                {
+
+                    TreeGDBObjectData child = item.Tag as TreeGDBObjectData;
+                    TreeViewItem p = item.Parent as TreeViewItem;
+                    TreeGDBObject parent = p.Tag as TreeGDBObject;
+
+                    _statusbar.Items.Add("Parent: FNVHASH[" + parent.Data.fnv.ToString("X8") + "], HASH[" + parent.Data.hash.ToString("X8") + "], Partition[" + parent.Data.partition.ToString("X4") + "]");
+                }
+            }
+        }
+
         public void TreeViewItem_RightClick(object sender, RoutedEventArgs e)
         {
             if (sender is TreeViewItem)
@@ -312,6 +354,6 @@ namespace GDBEditor
             x = (x >> 16) | (x << 16);
             // swap adjacent 8-bit blocks
             return ((x & 0xFF00FF00) >> 8) | ((x & 0x00FF00FF) << 8);
-        }
+        } 
     }
 }

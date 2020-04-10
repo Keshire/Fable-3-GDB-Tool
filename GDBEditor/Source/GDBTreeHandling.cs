@@ -101,14 +101,16 @@ namespace GDBEditor
         static public TreeGDBObject GetTreeNode(GDBTreeItem item)
         {
             var node = new TreeGDBObject() { Name = item.name, Data = item, TreeGDBObjectData = new List<TreeGDBObjectData>() };
+
             for (int i = 0; i < item.data.RowDataBytes.Count(); i++)
             {
-                var child = new TreeGDBObjectData() { Name = item.column_string[i] };
-                UInt16 datatype = item.type.Data_Type[(UInt16)i];
-                child.Type = datatype;
-                child.Index = i;
 
-                var data = GDB_Util.ConvertToType(datatype, item.data.RowDataBytes[i]);
+                var child = new TreeGDBObjectData() { Name = item.column_string[item.type.Sort_Order[i]] };
+                UInt16 datatype = item.type.Data_Type[(UInt16)item.type.Sort_Order[i]];
+                child.Type = datatype;
+                child.Index = item.type.Sort_Order[i];
+
+                var data = GDB_Util.ConvertToType(datatype, item.data.RowDataBytes[item.type.Sort_Order[i]]);
                 switch (Type.GetTypeCode(data.GetType()))
                 {
                     case TypeCode.UInt32:

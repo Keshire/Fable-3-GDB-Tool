@@ -15,6 +15,8 @@ namespace GDBEditor
             (new FileInfo(filename)).Directory.Create();
             using (BinaryWriter b = new BinaryWriter(File.Open(filename, FileMode.Create)))
             {
+
+                //Get sizes before writing
                 uint recsize = 0;
                 foreach (var record in file.RecordDict)
                 {
@@ -28,6 +30,13 @@ namespace GDBEditor
                     rowsize += 4;
                     foreach (var fnv in type.Value.Column_FNV) { rowsize += 4; }
                     foreach (var data in type.Value.Data_Type) { rowsize += 4; } //This is sorted differently than the base file, will this break?
+                }
+
+                uint strsize = 0;
+                foreach (var fnvTostr in file.FNVToString)
+                {
+                    strsize += 4;
+                    strsize += (uint)fnvTostr.Value.ToCharArray().Length + 1;
                 }
 
 
@@ -53,10 +62,9 @@ namespace GDBEditor
                     b.Write(type.Value.Columns);
                     b.Write(type.Value.Count2);
                     foreach (var fnv in type.Value.Column_FNV) { b.Write(fnv); }
-                    foreach (var data in type.Value.Data_Type) { b.Write(data.Key); b.Write(data.Value); } //This is sorted differently than the base file, will this break?
+                    foreach (var data in type.Value.Data_Type) { b.Write(type.Value.Sort_Order[data.Key]); b.Write(data.Value); } //Not sure how dataid is sorted, so let's just grab the original order for now.
                 }
 
-                //Something isn't getting written correctly, because the objects aren't picking up strings that the original has.
                 //then hashes
                 foreach (var record in file.RecordDict) { b.Write(record.Value.hash); }
                 //then partitions
@@ -69,10 +77,23 @@ namespace GDBEditor
 
                 //not sure how this is controlled
                 b.Write(file.StringData.Header);
-                b.Write(file.StringData.TableSize);
-                b.Write(file.StringData.Count);
-                foreach (var fnvTostr in file.FNVToString) { b.Write(fnvTostr.Key); b.Write(fnvTostr.Value.ToCharArray()); b.Write(new Byte[] { 0x00 }); }
-                foreach (var offset in file.StringData.Offsets) { b.Write(offset); }
+                b.Write(strsize);
+                b.Write(file.FNVToString.Count);
+
+                var string_offsets = new List<uint>();
+                var start_offset = (uint)b.BaseStream.Position;
+                foreach (var fnvTostr in file.FNVToString)
+                {
+                    var local_offset = (uint)b.BaseStream.Position - start_offset;
+                    string_offsets.Add(local_offset);
+
+                    b.Write(fnvTostr.Key);
+                    b.Write(fnvTostr.Value.ToCharArray());
+                    b.Write(new Byte[] { 0x00 });
+                }
+                //foreach (var offset in file.StringData.Offsets) { b.Write(offset); }
+                //There's some type of sorting going on here. Not sure what it is though. First come first serve maybe?
+                foreach (var offset in string_offsets) { b.Write(offset); }
             }
         }
     }
